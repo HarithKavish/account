@@ -151,9 +151,12 @@ flash.
 
 ## Deployment
 
-The app is a standard Next.js build with no external services in Phase 1, so any
-Node host works. On Vercel: import the repository, keep the defaults, and point
-`account.harithkavish.com` at the deployment.
+Phase 1 is deployed as a static GitHub Pages site at `account.harithkavish.com`.
+The workflow in `.github/workflows/deploy.yml` builds with `STATIC_EXPORT=1`
+and publishes the `out/` artifact to Pages.
 
-Set `NEXT_PUBLIC_SITE_URL` if the deployment serves from a different origin;
-it defaults to the production domain.
+Set `NEXT_PUBLIC_SITE_URL` if a preview or alternate origin needs to be
+rendered into metadata; it defaults to the production domain.
+
+The server-rendered path stays intact for Phase 3 and later. Switching hosts is
+still a config change, not a rewrite.
