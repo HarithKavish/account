@@ -105,6 +105,51 @@ project**, not the project's default `neondb`. This keeps Account Platform data
 separate from data the Auth Platform will hold later, in line with the
 platform separation above.
 
+### Neon branches — development vs production
+
+```
+Neon project "harithkavish"
+│
+├── production   (default branch)   → endpoint ep-long-recipe-…
+│     └── database "account"        → used by the deployed application ONLY
+│
+└── dev          (branched from production)  → endpoint ep-round-frog-…
+      └── database "account"        → used by local development ONLY
+```
+
+| | Local development | Production |
+| --- | --- | --- |
+| Neon branch | `dev` | `production` |
+| Database | `account` | `account` |
+| Credentials live in | `.env.local` (gitignored) | Vercel environment variables |
+
+Production credentials are deliberately **not** present in `.env.local`. Local
+development cannot reach the production database.
+
+The `dev` branch was created from `production`, so it starts as a copy-on-write
+snapshot of the schema and the data at that moment. Writing to it does not
+affect production — verified by diffing the production schema and row counts
+before and after a dev signup test.
+
+Run `npm run env:check` to confirm which branch you are pointed at, and
+`npm run db:schema` to print a database's structure and row counts.
+
+### Redis environments
+
+The Upstash free tier permits a single database, so development and production
+**share one Redis instance**, separated by key namespace:
+
+| Environment | Key prefix |
+| --- | --- |
+| Production | `account:signup:prod` |
+| Vercel preview | `account:signup:preview` |
+| Local development | `account:signup:dev` |
+
+This stops development traffic consuming production's rate-limit budget. It is
+namespace isolation, not instance isolation — the two environments still share
+one credential. A separate production instance would be stronger and requires a
+paid Upstash plan.
+
 ### Module layout
 
 ```
@@ -329,6 +374,7 @@ Read from `package.json` and project configuration.
 
 | Layer | Technology |
 | --- | --- |
+| Runtime | Node.js 22.x (pinned via `engines` and `.nvmrc`) |
 | Framework | Next.js 16.3.0 (App Router, Turbopack) |
 | UI | React 19.2.8, TypeScript 5 |
 | Styling | Plain CSS with custom properties (`app/globals.css`) — no CSS framework |
@@ -392,6 +438,7 @@ npm run start           # serve the production build
 npm run typecheck       # tsc --noEmit
 npm run lint            # eslint
 npm run env:check       # report which env files loaded and what they point at
+npm run db:schema       # print tables, enums, indexes, constraints, row counts
 ```
 
 The production build requires **no** credentials — nothing connects to the
@@ -523,11 +570,11 @@ workflow.
 
 ### Environments
 
-| Environment | State |
-| --- | --- |
-| Local development | Working. `npm run dev` against Neon and Upstash |
-| Staging | Does not exist |
-| Production | **Not deployed.** Domain serves the previous static build |
+| Environment | Database | State |
+| --- | --- | --- |
+| Local development | Neon `dev` branch | Working |
+| Staging | — | Does not exist |
+| Production | Neon `production` branch | See deployment status above |
 
 ---
 

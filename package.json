@@ -2,6 +2,9 @@
   "name": "harithkavish-account",
   "version": "0.1.0",
   "private": true,
+  "engines": {
+    "node": "22.x"
+  },
   "description": "HarithKavish Account — centralized identity for HarithKavish platforms.",
   "scripts": {
     "dev": "next dev",
@@ -13,7 +16,8 @@
     "db:generate": "drizzle-kit generate",
     "db:migrate": "drizzle-kit migrate",
     "db:studio": "drizzle-kit studio",
-    "verify:signup": "tsx scripts/verify-signup.mts"
+    "verify:signup": "tsx scripts/verify-signup.mts",
+    "db:schema": "tsx scripts/schema-report.mts"
   },
   "dependencies": {
     "@neondatabase/serverless": "^1.1.0",

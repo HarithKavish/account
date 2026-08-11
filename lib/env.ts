@@ -66,6 +66,25 @@ export function describeTarget(connectionString: string): string {
 }
 
 /**
+ * Structured, credential-free breakdown of a connection target, for reporting.
+ * The password is never read, let alone returned.
+ */
+export function inspectTarget(connectionString: string): {
+  host: string;
+  database: string;
+  user: string;
+  pooled: boolean;
+} {
+  const url = new URL(connectionString);
+  return {
+    host: normalizeHost(url.hostname),
+    database: url.pathname.replace(/^\//, '') || '(default)',
+    user: url.username || '(none)',
+    pooled: url.hostname.includes('-pooler'),
+  };
+}
+
+/**
  * Guards the failure this project is most exposed to: the application reads the
  * pooled URL while migrations use the direct one, so if the two ever point at
  * different databases, migrations land somewhere the app never reads — and

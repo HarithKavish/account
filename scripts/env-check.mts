@@ -8,7 +8,7 @@
  * you think it is. Prints hosts and database names only — never credentials.
  */
 
-import { describeTarget, hasUpstashEnv, readDatabaseEnv } from '../lib/env';
+import { hasUpstashEnv, inspectTarget, readDatabaseEnv } from '../lib/env';
 import { loadEnv } from '../lib/env-cli';
 
 const { files } = loadEnv();
@@ -25,9 +25,15 @@ let failed = false;
 console.log('\nDatabase:');
 try {
   const db = readDatabaseEnv();
-  console.log(`  pooled (app)         ${describeTarget(db.url)}`);
-  console.log(`  direct (migrations)  ${describeTarget(db.unpooledUrl)}`);
-  console.log('  ✓ both address the same database');
+  const pooled = inspectTarget(db.url);
+  const direct = inspectTarget(db.unpooledUrl);
+
+  console.log(`  host      ${pooled.host}`);
+  console.log(`  database  ${pooled.database}`);
+  console.log(`  user      ${pooled.user}`);
+  console.log(`  pooled    ${db.url.includes('-pooler') ? 'yes' : 'NO — expected a -pooler host for the app'}`);
+  console.log(`  direct    ${direct.pooled ? 'NO — direct URL points at the pooler' : 'yes'}`);
+  console.log('  ✓ pooled and direct URLs address the same database');
 } catch (error) {
   failed = true;
   console.log(`  ✗ ${(error as Error).message.split('\n').join('\n    ')}`);

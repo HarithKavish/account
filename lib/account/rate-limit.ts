@@ -20,6 +20,26 @@ import { hasUpstashEnv } from '../env';
 const WINDOW = '10 m';
 const MAX_ATTEMPTS = 5;
 
+/**
+ * Key namespace, so local development and production never share counters.
+ *
+ * The Upstash free tier permits a single database, so both environments use one
+ * Redis instance. Separating the keyspace is what stops development traffic
+ * consuming production's rate-limit budget (and vice versa). It is namespace
+ * isolation, not instance isolation — a separate production instance would be
+ * stronger and is worth doing if the plan is ever upgraded.
+ *
+ * `VERCEL_ENV` is set by Vercel to production/preview/development and is the
+ * most precise signal when deployed; NODE_ENV is the local fallback.
+ */
+function keyPrefix(): string {
+  const vercelEnv = process.env.VERCEL_ENV;
+  if (vercelEnv === 'production') return 'account:signup:prod';
+  if (vercelEnv === 'preview') return 'account:signup:preview';
+  if (vercelEnv) return 'account:signup:dev';
+  return process.env.NODE_ENV === 'production' ? 'account:signup:prod' : 'account:signup:dev';
+}
+
 let limiter: Ratelimit | null = null;
 
 export function isRateLimitConfigured(): boolean {
@@ -32,7 +52,7 @@ function getLimiter(): Ratelimit | null {
     limiter = new Ratelimit({
       redis: Redis.fromEnv(),
       limiter: Ratelimit.slidingWindow(MAX_ATTEMPTS, WINDOW),
-      prefix: 'account:signup',
+      prefix: keyPrefix(),
       analytics: false,
     });
   }
