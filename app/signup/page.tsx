@@ -71,11 +71,8 @@ function SignupForm() {
 
       <div className="auth-card">
         <div className="auth-card__head">
-          <h1 className="auth-card__title">Create your HarithKavish Account</h1>
-          <p className="auth-card__lead">
-            One account, intended to sign you in to HarithKavish products such as Forge, Nexus and
-            VR as they connect to it. We only ask for your name and a user ID.
-          </p>
+          <h1 className="auth-card__title">Create your account</h1>
+          <p className="auth-card__lead">One HarithKavish Account for HarithKavish products</p>
         </div>
 
         {formError && <FormAlert>{formError}</FormAlert>}

@@ -2,7 +2,7 @@
 
 import { useEffect } from 'react';
 import { usePathname, useRouter } from 'next/navigation';
-import { readNextPath } from '@/lib/account/redirect';
+import { normalizePath, readNextPath } from '@/lib/account/redirect';
 import { useAuth } from './auth-provider';
 
 function RouteLoading({ label }: { label: string }) {
@@ -32,7 +32,7 @@ export function RequireAuth({ children }: { children: React.ReactNode }) {
 
   useEffect(() => {
     if (status === 'unauthenticated') {
-      router.replace(`/login?next=${encodeURIComponent(pathname)}`);
+      router.replace(`/login?next=${encodeURIComponent(normalizePath(pathname))}`);
     }
   }, [status, router, pathname]);
 

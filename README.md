@@ -54,15 +54,23 @@ No secrets are required in Phase 1.
 
 ## Routes
 
-| Route | Access | Purpose |
-| --- | --- | --- |
-| `/` | Public | Entry point — what the account is, and the way in |
-| `/login` | Public | Sign in with user ID and password |
-| `/signup` | Public | Create an account (name, user ID, password) |
-| `/passkey` | Public | Passkey sign-in — states honestly that it is not built yet |
-| `/account` | Protected | Account dashboard: profile, status, connected products |
-| `/security` | Protected | Password, passkeys, active sessions |
-| `/settings` | Protected | Profile editing, security shortcut, appearance, sign out |
+The signed-in experience is a settings application: a fixed category rail on the
+left, the selected category on the right.
+
+| Route | Category | Access | Purpose |
+| --- | --- | --- | --- |
+| `/` | — | Public | Redirects to `/account` or `/login` |
+| `/login` | — | Public | Sign in with user ID and password |
+| `/signup` | — | Public | Create an account (name, user ID, password) |
+| `/passkey` | — | Public | Passkey sign-in — states that it is not built yet |
+| `/account` | Home | Protected | Identity summary and links into each category |
+| `/personal-info` | Personal info | Protected | Name (editable in place), user ID, created date |
+| `/privacy` | Data & privacy | Protected | What the account stores and never collects |
+| `/security` | Security | Protected | Password, passkeys, sessions, sign out |
+| `/settings` | Preferences | Protected | Appearance |
+
+`/security` and `/settings` keep their original paths so existing links stay
+valid, even though they are presented as categories.
 
 Redirect behaviour:
 
@@ -79,7 +87,11 @@ Redirect behaviour:
 ```
 app/                      Routes (App Router). One directory per page.
   globals.css             The whole design system: tokens + component classes.
-components/               Shell, forms, guards. All client components.
+assets/                   Full-resolution source art, deliberately not served.
+components/
+  app-shell.tsx           Header, footer, demo notice.
+  account-layout.tsx      Category rail + content pane.
+  rows.tsx                Row primitives every category is built from.
 lib/
   account/
     types.ts              Domain types + the AuthBackend interface.

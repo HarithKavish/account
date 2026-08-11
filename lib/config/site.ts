@@ -10,65 +10,33 @@
 const SITE_URL = process.env.NEXT_PUBLIC_SITE_URL || 'https://account.harithkavish.com';
 
 export const site = {
-  name: 'HarithKavish Account',
-  shortName: 'Account',
-  descriptor: 'One account for HarithKavish',
+  /** The product is branded simply "Account" beside the HarithKavish mark. */
+  name: 'Account',
+  fullName: 'HarithKavish Account',
   domain: 'account.harithkavish.com',
   url: SITE_URL,
   parentUrl: 'https://harithkavish.com',
-  summary:
-    'One HarithKavish Account for signing in to HarithKavish products. Built around identity and authentication, nothing more.',
+  summary: 'Your HarithKavish Account.',
 } as const;
 
-export interface NavItem {
+export type CategoryId = 'home' | 'personal-info' | 'privacy' | 'security' | 'preferences';
+
+export interface Category {
+  id: CategoryId;
   label: string;
   href: string;
 }
 
-/** Primary navigation for a signed-in user. */
-export const accountNav: NavItem[] = [
-  { label: 'Account', href: '/account' },
-  { label: 'Security', href: '/security' },
-  { label: 'Settings', href: '/settings' },
-];
-
-/** Navigation shown before sign-in. */
-export const publicNav: NavItem[] = [
-  { label: 'Sign in', href: '/login' },
-  { label: 'Create account', href: '/signup' },
-];
-
-export const footerNav: NavItem[] = [
-  { label: 'Sign in', href: '/login' },
-  { label: 'Create account', href: '/signup' },
-  { label: 'HarithKavish', href: site.parentUrl },
-];
-
 /**
- * The products a HarithKavish Account is intended to unlock. Phase 7 work —
- * listed here as roadmap, never rendered as if the connection already exists.
+ * The left-hand categories of the account app. Order is the display order.
+ *
+ * `/security` and `/settings` keep their original paths so existing links and
+ * bookmarks stay valid, even though they are presented as categories now.
  */
-export interface EcosystemProduct {
-  name: string;
-  description: string;
-  /** 'available' would mean sign-in actually works today. None do yet. */
-  status: 'planned';
-}
-
-export const ecosystem: EcosystemProduct[] = [
-  {
-    name: 'Forge',
-    description: 'Project resource intelligence.',
-    status: 'planned',
-  },
-  {
-    name: 'Nexus',
-    description: 'Connected workspace services.',
-    status: 'planned',
-  },
-  {
-    name: 'VR',
-    description: 'Immersive experiences.',
-    status: 'planned',
-  },
+export const categories: Category[] = [
+  { id: 'home', label: 'Home', href: '/account' },
+  { id: 'personal-info', label: 'Personal info', href: '/personal-info' },
+  { id: 'privacy', label: 'Data & privacy', href: '/privacy' },
+  { id: 'security', label: 'Security', href: '/security' },
+  { id: 'preferences', label: 'Preferences', href: '/settings' },
 ];

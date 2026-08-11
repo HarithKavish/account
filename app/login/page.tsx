@@ -56,7 +56,7 @@ function LoginForm() {
       <div className="auth-card">
         <div className="auth-card__head">
           <h1 className="auth-card__title">Sign in</h1>
-          <p className="auth-card__lead">Use your HarithKavish Account.</p>
+          <p className="auth-card__lead">Use your HarithKavish Account</p>
         </div>
 
         {formError && <FormAlert>{formError}</FormAlert>}

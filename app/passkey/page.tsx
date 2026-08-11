@@ -24,46 +24,24 @@ export default function PasskeyPage() {
       <div className="auth-card">
         <div className="auth-card__head">
           <h1 className="auth-card__title">Sign in with a passkey</h1>
-          <p className="auth-card__lead">
-            A passkey lets you sign in with your device — fingerprint, face or screen lock —
-            instead of typing a password. The private key never leaves your device and is never
-            sent to us.
-          </p>
+          <p className="auth-card__lead">Use your device instead of a password</p>
         </div>
 
         {!capabilities.passkeys && (
           <FormAlert tone="info">
-            Passkeys are not available yet. This platform has to store real accounts before it can
-            register credentials against them, so passkey support arrives after sign-in becomes
-            real.
+            Passkeys are not available yet. They arrive once accounts are stored on a server.
           </FormAlert>
         )}
 
-        <div className="stack">
-          <div className="empty-state">
-            <p className="empty-state__title">What will work here</p>
-            <p className="empty-state__body">
-              You will be able to add one or more passkeys from the Security page, then use any of
-              them to sign in on that device. Multiple passkeys per account are supported by
-              design, so a phone and a laptop can each have their own.
-            </p>
-          </div>
-        </div>
-
         <div className="form__actions">
           {authenticated ? (
-            <>
-              <Link className="button button--primary button--full" href="/security">
-                Go to Security
-              </Link>
-              <Link className="button button--secondary button--full" href="/account">
-                Back to your account
-              </Link>
-            </>
+            <Link className="button button--secondary button--full" href="/security">
+              Back to Security
+            </Link>
           ) : (
             <>
               <Link className="button button--primary button--full" href="/login">
-                Sign in with a password
+                Use a password
               </Link>
               <Link className="button button--secondary button--full" href="/signup">
                 Create an account

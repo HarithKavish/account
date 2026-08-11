@@ -3,7 +3,7 @@
 import { useEffect, useRef, useState } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
-import { accountNav } from '@/lib/config/site';
+import { categories } from '@/lib/config/site';
 import type { AccountUser } from '@/lib/account/types';
 import { useAuth } from './auth-provider';
 
@@ -56,32 +56,34 @@ export function UserMenu({ user }: { user: AccountUser }) {
         onClick={() => setOpen((value) => !value)}
         aria-expanded={open}
         aria-haspopup="menu"
+        aria-label="Account menu"
       >
         <span className="avatar" aria-hidden="true">
           {initials(user)}
         </span>
-        <span>{user.firstName}</span>
-        <span className="visually-hidden">Open account menu</span>
       </button>
 
       {open && (
         <div className="user-menu__panel" role="menu">
           <div className="user-menu__identity">
+            <span className="avatar avatar--lg" aria-hidden="true">
+              {initials(user)}
+            </span>
             <span className="user-menu__name">
               {user.firstName} {user.lastName}
             </span>
             <span className="user-menu__id">{user.userId}</span>
           </div>
 
-          {accountNav.map((item) => (
+          {categories.map((category) => (
             <Link
-              key={item.href}
-              href={item.href}
+              key={category.id}
+              href={category.href}
               className="user-menu__item"
               role="menuitem"
               onClick={() => setOpen(false)}
             >
-              {item.label}
+              {category.label}
             </Link>
           ))}
 

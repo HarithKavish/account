@@ -9,6 +9,15 @@
 
 export const DEFAULT_DESTINATION = '/account';
 
+/**
+ * Strips the trailing slash so paths compare equal regardless of build mode.
+ * The static export uses `trailingSlash: true`, so `usePathname()` yields
+ * "/account/" there and "/account" in a server build.
+ */
+export function normalizePath(path: string): string {
+  return path.length > 1 ? path.replace(/\/+$/, '') : path;
+}
+
 export function isSafeInternalPath(path: string | null | undefined): path is string {
   if (!path) return false;
   // Reject protocol-relative ("//host") and any absolute URL; require a path.
