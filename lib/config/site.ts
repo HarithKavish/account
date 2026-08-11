@@ -1,12 +1,10 @@
 /**
- * Structured site content. Everything the shell renders comes from here rather
- * than being scattered through components.
+ * Structured site content.
+ *
+ * This is the Account Platform. Authentication belongs to a separate product at
+ * auth.harithkavish.com and is referenced here only as an external service.
  */
 
-/**
- * The canonical production origin. Overridable per environment (preview
- * deployments, local development) but always falls back to the real domain.
- */
 const SITE_URL = process.env.NEXT_PUBLIC_SITE_URL || 'https://account.harithkavish.com';
 
 export const site = {
@@ -16,10 +14,20 @@ export const site = {
   domain: 'account.harithkavish.com',
   url: SITE_URL,
   parentUrl: 'https://harithkavish.com',
-  summary: 'Your HarithKavish Account.',
+  summary: 'Create and manage your HarithKavish Account.',
 } as const;
 
-export type CategoryId = 'home' | 'personal-info' | 'privacy' | 'security' | 'preferences';
+/**
+ * The Authentication Platform. Treated strictly as an external service: this
+ * app links to it and describes it, and implements none of its behaviour.
+ */
+export const authPlatform = {
+  name: 'HarithKavish Authentication',
+  domain: 'auth.harithkavish.com',
+  url: 'https://auth.harithkavish.com',
+} as const;
+
+export type CategoryId = 'overview' | 'profile' | 'security' | 'delete';
 
 export interface Category {
   id: CategoryId;
@@ -27,16 +35,10 @@ export interface Category {
   href: string;
 }
 
-/**
- * The left-hand categories of the account app. Order is the display order.
- *
- * `/security` and `/settings` keep their original paths so existing links and
- * bookmarks stay valid, even though they are presented as categories now.
- */
+/** Account management categories. */
 export const categories: Category[] = [
-  { id: 'home', label: 'Home', href: '/account' },
-  { id: 'personal-info', label: 'Personal info', href: '/personal-info' },
-  { id: 'privacy', label: 'Data & privacy', href: '/privacy' },
+  { id: 'overview', label: 'Overview', href: '/account' },
+  { id: 'profile', label: 'Profile', href: '/settings' },
   { id: 'security', label: 'Security', href: '/security' },
-  { id: 'preferences', label: 'Preferences', href: '/settings' },
+  { id: 'delete', label: 'Delete account', href: '/delete' },
 ];

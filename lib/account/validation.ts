@@ -1,12 +1,12 @@
 /**
  * Shared validation rules.
  *
- * These are deliberately backend-agnostic: Phase 3 will run the very same
- * functions server-side, where they become the authoritative check. Client-side
- * use is purely for fast feedback and is never the security boundary.
+ * The same functions run on the server, where they are the authoritative
+ * check, and in the browser purely for fast feedback. Client-side validation
+ * is never the security boundary.
  */
 
-import type { AuthError, SignInInput, SignUpInput } from './types';
+import type { AccountError, CreateAccountInput } from './types';
 
 export const USER_ID_MIN = 3;
 /** Long enough that an email address can be used as the login identity. */
@@ -58,7 +58,7 @@ function validatePassword(raw: string): string | null {
   return null;
 }
 
-export function validateSignUp(input: SignUpInput): FieldErrors {
+export function validateCreateAccount(input: CreateAccountInput): FieldErrors {
   const errors: FieldErrors = {};
 
   const firstName = validateName(input.firstName, 'first name');
@@ -82,13 +82,6 @@ export function validateSignUp(input: SignUpInput): FieldErrors {
   return errors;
 }
 
-export function validateSignIn(input: SignInInput): FieldErrors {
-  const errors: FieldErrors = {};
-  if (!input.userId.trim()) errors.userId = 'Enter your user ID.';
-  if (!input.password) errors.password = 'Enter your password.';
-  return errors;
-}
-
 export function validateProfile(input: { firstName: string; lastName: string }): FieldErrors {
   const errors: FieldErrors = {};
   const firstName = validateName(input.firstName, 'first name');
@@ -103,7 +96,7 @@ export function hasErrors(errors: FieldErrors): boolean {
 }
 
 /** Turns the first field error into the standard error envelope. */
-export function toValidationError(errors: FieldErrors): AuthError {
+export function toValidationError(errors: FieldErrors): AccountError {
   const [field, message] = Object.entries(errors)[0] ?? ['form', 'Check the form and try again.'];
   return { code: 'validation_failed', message, field };
 }

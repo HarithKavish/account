@@ -1,96 +1,90 @@
-'use client';
-
-import { useEffect, useState } from 'react';
-import { useRouter } from 'next/navigation';
+import type { Metadata } from 'next';
 import { AppShell } from '@/components/app-shell';
 import { AccountLayout } from '@/components/account-layout';
-import { useAuth } from '@/components/auth-provider';
-import { Group, Row, UnavailablePill } from '@/components/rows';
-import { getAuthBackend } from '@/lib/account/backend';
-import type { AccountSession, Passkey } from '@/lib/account/types';
+import { PendingAuth, PendingPill } from '@/components/pending-auth';
+import { authPlatform } from '@/lib/config/site';
 
+export const metadata: Metadata = { title: 'Security' };
+
+/**
+ * Security.
+ *
+ * The password is stored by this platform (Argon2id) because credentials are
+ * account lifecycle data. Changing it still requires proving who you are, which
+ * is the Auth Platform's job — hence the gate.
+ *
+ * Passkeys are described but not built: registering credentials here before the
+ * Account/Auth contract exists would either duplicate WebAuthn logic that
+ * belongs to Auth, or bake in a guess about which side owns it.
+ */
 export default function SecurityPage() {
-  const { capabilities, signOut } = useAuth();
-  const router = useRouter();
-  const [passkeys, setPasskeys] = useState<Passkey[]>([]);
-  const [sessions, setSessions] = useState<AccountSession[]>([]);
-
-  // Read through the backend even though Phase 1 returns nothing, so these rows
-  // start showing real data the moment Phases 3–4 land.
-  useEffect(() => {
-    const backend = getAuthBackend();
-    let active = true;
-    void Promise.all([backend.listPasskeys(), backend.listSessions()]).then(([keys, live]) => {
-      if (!active) return;
-      setPasskeys(keys);
-      setSessions(live);
-    });
-    return () => {
-      active = false;
-    };
-  }, []);
-
-  async function handleSignOut() {
-    await signOut();
-    router.replace('/login');
-  }
-
   return (
     <AppShell>
       <AccountLayout title="Security">
-        <Group title="How you sign in">
-          <Row
-            label="Password"
-            value={capabilities.realAuthentication ? 'Set' : 'Demonstration only'}
-            trailing={capabilities.passwordChange ? undefined : <UnavailablePill />}
-          />
-          <Row
-            label="Passkeys"
-            value={passkeys.length > 0 ? `${passkeys.length} registered` : 'None'}
-            trailing={capabilities.passkeys ? undefined : <UnavailablePill />}
-          />
-        </Group>
+        <PendingAuth action="Changing your password" />
 
-        {passkeys.length > 0 && (
-          <Group title="Your passkeys">
-            {passkeys.map((passkey) => (
-              <Row
-                key={passkey.id}
-                label={passkey.label}
-                value={`Added ${new Date(passkey.createdAt).toLocaleDateString()}`}
-              />
-            ))}
-          </Group>
-        )}
+        <section className="group">
+          <h2 className="group__title">Password</h2>
+          <div className="rows">
+            <div className="row">
+              <span className="row__label">Password</span>
+              <span className="row__value">
+                Set when you created your account
+                <span className="row__note">
+                  Stored only as an Argon2id hash. It is never shown back to you and never leaves
+                  the server.
+                </span>
+              </span>
+              <span className="row__trailing" />
+            </div>
+            <div className="row">
+              <span className="row__label">Change password</span>
+              <span className="row__value row__empty">
+                Requires confirming your current password
+              </span>
+              <span className="row__trailing">
+                <PendingPill />
+              </span>
+            </div>
+          </div>
+        </section>
 
-        <Group title="Sessions">
-          {sessions.length > 0 ? (
-            sessions.map((session) => (
-              <Row
-                key={session.id}
-                label={session.client}
-                value={`Last active ${new Date(session.lastSeenAt).toLocaleString()}`}
-                trailing={session.current ? <span className="pill pill--active">This device</span> : undefined}
-              />
-            ))
-          ) : (
-            <Row
-              label="Active sessions"
-              value="Unavailable"
-              note="This preview keeps your session in your own browser, so there is no server-side list."
-              trailing={<UnavailablePill />}
-            />
-          )}
-          <Row
-            label="Sign out"
-            value="On this device"
-            trailing={
-              <button type="button" className="row__action row__action--danger" onClick={handleSignOut}>
-                Sign out
-              </button>
-            }
-          />
-        </Group>
+        <section className="group">
+          <h2 className="group__title">Passkeys</h2>
+          <div className="rows">
+            <div className="row">
+              <span className="row__label">Passkeys</span>
+              <span className="row__value row__empty">
+                Not available yet
+                <span className="row__note">
+                  Passkeys let you sign in with your device instead of a password. Because signing
+                  in belongs to {authPlatform.name}, how passkeys are registered and verified is
+                  being settled between the two services before either builds it.
+                </span>
+              </span>
+              <span className="row__trailing">
+                <PendingPill />
+              </span>
+            </div>
+          </div>
+        </section>
+
+        <section className="group">
+          <h2 className="group__title">Sessions</h2>
+          <div className="rows">
+            <div className="row">
+              <span className="row__label">Active sessions</span>
+              <span className="row__value row__empty">
+                Managed elsewhere
+                <span className="row__note">
+                  This site has no login and creates no sessions. Where you are signed in is
+                  {' '}{authPlatform.domain}&rsquo;s to show.
+                </span>
+              </span>
+              <span className="row__trailing" />
+            </div>
+          </div>
+        </section>
       </AccountLayout>
     </AppShell>
   );

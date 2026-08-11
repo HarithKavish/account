@@ -1,13 +1,7 @@
-'use client';
-
 import Link from 'next/link';
 import { AppShell } from '@/components/app-shell';
-import { useAuth } from '@/components/auth-provider';
 
 export default function NotFound() {
-  const { status } = useAuth();
-  const home = status === 'authenticated' ? '/account' : '/login';
-
   return (
     <AppShell centered>
       <div className="auth-card">
@@ -15,8 +9,11 @@ export default function NotFound() {
           <h1 className="auth-card__title">Page not found</h1>
         </div>
         <div className="form__actions">
-          <Link className="button button--primary button--full" href={home}>
-            {status === 'authenticated' ? 'Back to your account' : 'Go to sign in'}
+          <Link className="button button--primary button--full" href="/">
+            Go to the account site
+          </Link>
+          <Link className="button button--secondary button--full" href="/signup">
+            Create an account
           </Link>
         </div>
       </div>

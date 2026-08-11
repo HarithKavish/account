@@ -3,42 +3,45 @@
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { categories } from '@/lib/config/site';
-import { normalizePath } from '@/lib/account/redirect';
 import { CategoryIcon } from './icons';
-import { RequireAuth } from './route-guard';
+
+function normalize(path: string): string {
+  return path.length > 1 ? path.replace(/\/+$/, '') : path;
+}
 
 /**
- * The account application: a persistent category rail on the left, the selected
- * category on the right. Every signed-in page renders inside this.
+ * Account management: category rail on the left, selected category on the
+ * right. No route guard — the Account Platform has no session to guard with.
+ * Individual pages declare their own dependency on the Auth Platform.
  */
 export function AccountLayout({ title, children }: { title: string; children: React.ReactNode }) {
-  const pathname = normalizePath(usePathname());
+  const pathname = normalize(usePathname());
 
   return (
-    <RequireAuth>
-      <div className="account-app">
-        <nav className="rail" aria-label="Account categories">
-          {categories.map((category) => {
-            const active = pathname === category.href;
-            return (
-              <Link
-                key={category.id}
-                href={category.href}
-                className={`rail__item${active ? ' is-active' : ''}`}
-                aria-current={active ? 'page' : undefined}
-              >
-                <CategoryIcon id={category.id} />
-                <span>{category.label}</span>
-              </Link>
-            );
-          })}
-        </nav>
+    <div className="account-app">
+      <nav className="rail" aria-label="Account management">
+        {categories.map((category) => {
+          const active = pathname === category.href;
+          return (
+            <Link
+              key={category.id}
+              href={category.href}
+              className={`rail__item${active ? ' is-active' : ''}${
+                category.id === 'delete' ? ' rail__item--danger' : ''
+              }`}
+              aria-current={active ? 'page' : undefined}
+            >
+              <CategoryIcon id={category.id} />
+              <span>{category.label}</span>
+            </Link>
+          );
+        })}
+      </nav>
 
-        <div className="pane">
-          <h1 className="pane__title">{title}</h1>
-          {children}
-        </div>
+      <div className="pane">
+        <h1 className="pane__title">{title}</h1>
+        {children}
       </div>
-    </RequireAuth>
+    </div>
   );
 }

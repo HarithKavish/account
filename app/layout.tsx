@@ -1,5 +1,4 @@
 import type { Metadata, Viewport } from 'next';
-import { AuthProvider } from '@/components/auth-provider';
 import { themeInitScript } from '@/components/theme-toggle';
 import { site } from '@/lib/config/site';
 import './globals.css';
@@ -39,7 +38,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
         <script dangerouslySetInnerHTML={{ __html: themeInitScript }} />
       </head>
       <body>
-        <AuthProvider>{children}</AuthProvider>
+        {children}
       </body>
     </html>
   );

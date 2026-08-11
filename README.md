@@ -1,35 +1,64 @@
 # HarithKavish Account
 
-Centralized identity for HarithKavish products, served from
+The **Account Platform** — account lifecycle for HarithKavish, served from
 **https://account.harithkavish.com**.
 
-The account model is intentionally minimal: a user ID, a password, a first and
-last name, and (later) passkeys. This platform owns identity and authentication
-only — Forge, Nexus, VR and future products own their own data.
+## The boundary that defines this project
+
+There are two separate platforms. Keeping them separate is the point.
+
+| | **Account Platform** (this repo) | **Authentication Platform** (separate) |
+| --- | --- | --- |
+| Domain | `account.harithkavish.com` | `auth.harithkavish.com` |
+| Owns | Account creation, profile, credentials as stored data, deletion | Signing in, sessions, authenticating users into products |
+| Database | `users`, `account_events` | Its own |
+| Has a login? | **No** | Yes |
+
+Forge, Nexus and VR will send users to the Auth Platform to sign in. They will
+not implement their own login, and neither does this site.
+
+The password hash lives **here**, because an account's credentials are lifecycle
+data owned by the account. The *act* of authenticating with them belongs to
+Auth. That split is deliberate; do not collapse it by adding a login here.
+
+### What must never be added to this repo
+
+- A login page, sign-in form, or "continue as" affordance
+- Session tables, session cookies, or auth middleware
+- A second WebAuthn implementation
+- Anything that duplicates `auth.harithkavish.com`
 
 ---
 
-## Status: Phase 1 (product shell) — complete
+## Status
 
-The website, design system, information architecture and navigation are built.
-**Authentication is not.** Sign-in currently runs against a browser-local
-demonstration backend so the product could be designed and reviewed before the
-identity system is built underneath it.
+Account creation is **real**. A user can create an account and it is persisted
+to PostgreSQL with an Argon2id password hash and a database-enforced unique
+user ID.
 
-The running app says so plainly: a persistent banner warns against entering a
-real password, and every feature that would be security-sensitive to fake
-(password change, passkeys, session management) reports itself as unavailable
-rather than simulating success.
+Account *management* (profile edits, password change, deletion) is built up to
+the point where it needs to know who is asking. That proof comes from the Auth
+Platform, whose contract is not finalised, so those operations render an
+explicit "Sign-in required" state rather than a fake local login. See
+`components/pending-auth.tsx` — replacing that component with real data is the
+integration.
 
-| Phase | Scope | State |
-| --- | --- | --- |
-| 1 | Website / product shell | Done |
-| 2 | PostgreSQL schema | Not started |
-| 3 | Real registration, login, sessions | Not started |
-| 4 | Passkeys (WebAuthn) | Not started |
-| 5 | Account management | Not started |
-| 6 | Multi-application identity groundwork | Not started |
-| 7 | Forge / Nexus / VR integration | Not started |
+Passkeys are deliberately **not** implemented and have **no table yet**.
+Registering credentials before the Account/Auth contract exists would bake in a
+guess about which side owns them.
+
+---
+
+## Stack
+
+| Layer | Choice |
+| --- | --- |
+| Framework | Next.js 16 (App Router), React 19, TypeScript |
+| Database | Neon (serverless PostgreSQL) |
+| ORM / migrations | Drizzle + drizzle-kit |
+| Password hashing | Argon2id (`@node-rs/argon2`) |
+| Rate limiting | Upstash Redis (`@upstash/ratelimit`) |
+| Hosting | Vercel |
 
 ---
 
@@ -37,138 +66,140 @@ rather than simulating success.
 
 ```bash
 npm install
-npm run dev          # http://localhost:3000
+cp .env.example .env.local     # fill in Neon + Upstash values
+npm run db:migrate             # apply migrations to your database
+npm run dev
 ```
 
 ```bash
-npm run typecheck    # tsc --noEmit
-npm run lint         # eslint
-npm run build        # production build
-npm start            # serve the production build
+npm run typecheck
+npm run lint
+npm run build
+npm run db:generate            # regenerate SQL after editing lib/db/schema.ts
 ```
 
-Copy `.env.example` to `.env.local` if you need to override the site origin.
-No secrets are required in Phase 1.
+The build requires **no** credentials — nothing connects to a database or Redis
+at build time. CI enforces this.
 
 ---
 
 ## Routes
 
-The signed-in experience is a settings application: a fixed category rail on the
-left, the selected category on the right.
+| Route | Rendering | Purpose |
+| --- | --- | --- |
+| `/` | Static | What this site is; routes you to create or manage |
+| `/signup` | **Dynamic** | Real account creation. Writes to PostgreSQL |
+| `/account` | Static | Management overview |
+| `/settings` | Static | Profile — pending Auth integration |
+| `/security` | Static | Password, passkeys, sessions — pending Auth integration |
+| `/delete` | Static | Deletion consequences and confirmation — pending Auth integration |
 
-| Route | Category | Access | Purpose |
-| --- | --- | --- | --- |
-| `/` | — | Public | Redirects to `/account` or `/login` |
-| `/login` | — | Public | Sign in with user ID and password |
-| `/signup` | — | Public | Create an account (name, user ID, password) |
-| `/passkey` | — | Public | Passkey sign-in — states that it is not built yet |
-| `/account` | Home | Protected | Identity summary and links into each category |
-| `/personal-info` | Personal info | Protected | Name (editable in place), user ID, created date |
-| `/privacy` | Data & privacy | Protected | What the account stores and never collects |
-| `/security` | Security | Protected | Password, passkeys, sessions, sign out |
-| `/settings` | Preferences | Protected | Appearance |
-
-`/security` and `/settings` keep their original paths so existing links stay
-valid, even though they are presented as categories.
-
-Redirect behaviour:
-
-- A signed-out visitor to a protected route goes to `/login?next=<route>` and is
-  returned there after signing in.
-- A signed-in visitor to `/login` or `/signup` goes to `/account`.
-- `next` is only honoured when it is a same-origin absolute path, so it cannot
-  be used as an open redirect.
+There is no `/login`, and no redirect logic that implies one.
 
 ---
 
-## Architecture
+## Data model
 
 ```
-app/                      Routes (App Router). One directory per page.
-  globals.css             The whole design system: tokens + component classes.
-assets/                   Full-resolution source art, deliberately not served.
-components/
-  app-shell.tsx           Header, footer, demo notice.
-  account-layout.tsx      Category rail + content pane.
-  rows.tsx                Row primitives every category is built from.
-lib/
-  account/
-    types.ts              Domain types + the AuthBackend interface.
-    validation.ts         Rules shared by client and (in Phase 3) server.
-    mock-backend.ts       PHASE 1 ONLY. Browser-local demonstration.
-    backend.ts            Selects the installed backend. One line to swap.
-    redirect.ts           Safe post-login redirect handling.
-  config/site.ts          Navigation, branding, ecosystem roadmap data.
+users                                account_events
+├── id              uuid pk          ├── id           uuid pk
+├── user_id         unique, lower    ├── user_id      → users.id, ON DELETE SET NULL
+├── password_hash   argon2id         ├── type         enum
+├── first_name                       ├── occurred_at
+├── last_name                        └── metadata     jsonb, non-sensitive only
+├── status          enum
+├── created_at
+├── updated_at
+├── deletion_requested_at
+└── deleted_at
 ```
 
-### The swap point
+`id` (internal UUID) is deliberately separate from `user_id` (what the user
+types to sign in). The internal ID is never exposed as a login identity.
 
-Every page and component talks to `AuthBackend` (`lib/account/types.ts`) and
-never to the mock directly. Phase 3 adds a `ServerAuthBackend` implementing the
-same interface and changes the one line in `lib/account/backend.ts`. The UI does
-not change.
+`status`, `deletion_requested_at` and `deleted_at` exist so a deletion can be
+recorded and confirmed *before* the record is destroyed — which is what lets the
+Auth Platform be told to invalidate its state first.
 
-`AuthBackend.capabilities` drives what the UI claims to support, so Phases 3–5
-light up their sections by reporting `true` rather than by editing pages.
-
-### Data model
-
-Types in `lib/account/types.ts` already match the intended Phase 2 schema. Note
-that the internal `id` (UUID) is deliberately separate from the public `userId`
-that people type to sign in, and that passkeys are a separate collection keyed by
-`userId` — a user may register several.
-
-```
-users                              passkeys
-├── id            internal UUID    ├── id
-├── user_id       public, unique   ├── user_id       → users.id
-├── password_hash                  ├── credential_id
-├── first_name                     ├── public_key
-├── last_name                      ├── sign_count
-├── created_at                     ├── created_at
-└── updated_at                     └── last_used_at
-```
-
-No client-visible type carries a password hash, and none ever should.
+**No session table.** Sessions belong to the Auth Platform.
 
 ---
 
-## Design system
+## Account creation flow
 
-Tokens are inherited from the existing HarithKavish sites so this reads as part
-of the same family: the `--bg` / `--surface` / `--accent` / `--muted` palette,
-the `Aptos` type stack, 1.4rem card radius, pill controls, the radial background
-wash and the 120px grid overlay. Light and dark are both first-class, switched
-via `data-theme` on the root element with a pre-paint script so there is no
-flash.
+```
+/signup  →  client validation (feedback only)
+         →  Server Action  (Next.js Origin check = CSRF protection)
+         →  server-side validation (authoritative)
+         →  Upstash rate limit — before hashing, so Argon2 is not the DoS
+         →  user_id availability check (friendly message)
+         →  Argon2id hash
+         →  transaction: insert user + account_created event
+         →  return { userId, firstName } only
+         →  confirmation, pointing at auth.harithkavish.com to sign in
+```
+
+The user is **not** logged in afterwards. There is nothing to log into.
 
 ---
 
-## Security posture in Phase 1
+## Security
 
-- No plaintext password is ever written to storage.
-- The demo credential marker is a salted SHA-256 digest and is **not** a password
-  hashing function — Phase 3 uses Argon2id server-side and the client never sees
-  a hash at all.
-- Sign-in failures give one message for both unknown user and wrong password, so
-  user IDs cannot be enumerated.
-- Security headers (`X-Frame-Options`, `X-Content-Type-Options`, HSTS,
-  `Referrer-Policy`, `Permissions-Policy`) are set in `next.config.ts`. A CSP is
-  deferred to Phase 3, when the inline theme script can carry a nonce.
-- Routes are `noindex` — an account platform has nothing to gain from crawling.
-- `.env*` is gitignored; no secrets are in source control.
+Implemented:
+
+- Argon2id, OWASP floor (19 MiB, t=2, p=1). Parameters live in the hash, so they
+  can be raised later without invalidating existing accounts.
+- Password hashes never leave the server. `toProfile()` builds its result field
+  by field so a schema change cannot spread the hash into a response.
+- Server-side validation is authoritative; the client copy is for speed only.
+- Uniqueness enforced by a database unique index, not just an application check
+  — the pre-check exists for a friendly message and cannot survive a race.
+- Distributed rate limiting on account creation. If Upstash is unconfigured,
+  signup **fails closed** rather than running unprotected.
+- Parameterised queries throughout (Drizzle / `pg` placeholders).
+- `server-only` on the database, password and rate-limit modules, so importing
+  them from a client component is a build error.
+- Errors are logged without the input, which contains a plaintext password.
+- Security headers set in `next.config.ts` (now effective — the app is
+  server-rendered again).
+- Secrets only in environment variables; `.env*` is gitignored.
+
+Known and deliberate:
+
+- Signup reveals whether a user ID is taken. That is unavoidable on a form that
+  must let you pick a free one, and is not a meaningful leak here.
+- No CSP yet. It needs a nonce for the inline theme script; worth doing next.
 
 ---
 
 ## Deployment
 
-Phase 1 is deployed as a static GitHub Pages site at `account.harithkavish.com`.
-The workflow in `.github/workflows/deploy.yml` builds with `STATIC_EXPORT=1`
-and publishes the `out/` artifact to Pages.
+Hosted on **Vercel**. GitHub Pages was removed: it serves static files only and
+cannot run Server Actions or reach a database.
 
-Set `NEXT_PUBLIC_SITE_URL` if a preview or alternate origin needs to be
-rendered into metadata; it defaults to the production domain.
+Required environment variables in the Vercel project:
 
-The server-rendered path stays intact for Phase 3 and later. Switching hosts is
-still a config change, not a rewrite.
+| Variable | Notes |
+| --- | --- |
+| `DATABASE_URL` | Neon **pooled** connection (host contains `-pooler`) |
+| `DATABASE_URL_UNPOOLED` | Neon **direct** connection — migrations only |
+| `UPSTASH_REDIS_REST_URL` | Upstash |
+| `UPSTASH_REDIS_REST_TOKEN` | Upstash |
+| `NEXT_PUBLIC_SITE_URL` | `https://account.harithkavish.com` |
+
+DNS for `account.harithkavish.com` is on Cloudflare. Point it at Vercel with the
+record set to **DNS-only** (grey cloud) so two CDNs are not stacked.
+
+---
+
+## Verifying against the real database
+
+After creating an account through the form:
+
+```bash
+npm run verify:signup -- <userId> <password>
+```
+
+Asserts the schema, the stored row, that the hash is Argon2id and genuinely
+verifies, that the plaintext appears nowhere, that the audit event was written,
+and that the database itself rejects a duplicate user ID.

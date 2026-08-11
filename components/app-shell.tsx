@@ -1,58 +1,37 @@
-'use client';
-
 import Link from 'next/link';
 import { site } from '@/lib/config/site';
 import { Brand } from './brand';
 import { ThemeToggle } from './theme-toggle';
-import { UserMenu } from './user-menu';
-import { useAuth } from './auth-provider';
 
 /**
- * Honest, permanent notice while the Phase 1 demo backend is installed. It
- * disappears on its own once a backend reports `kind === 'server'`.
+ * Chrome for every page.
+ *
+ * There is deliberately no sign-in control here. The Account Platform has no
+ * login — authentication lives at auth.harithkavish.com.
  */
-function DemoBanner() {
-  return (
-    <div className="demo-banner">
-      <p className="demo-banner__inner">
-        <strong>Preview.</strong> Sign-in is a local demonstration, not real authentication — don&rsquo;t
-        use a password you rely on elsewhere.
-      </p>
-    </div>
-  );
-}
-
-interface AppShellProps {
+export function AppShell({
+  children,
+  centered = false,
+}: {
   children: React.ReactNode;
-  /** Narrow, vertically centred column — used by the sign-in pages. */
+  /** Narrow, vertically centred column — used by signup. */
   centered?: boolean;
-}
-
-export function AppShell({ children, centered = false }: AppShellProps) {
-  const { status, user, isDemo } = useAuth();
-  const authenticated = status === 'authenticated' && user;
-
+}) {
   return (
     <>
       <a className="skip-link" href="#main">
         Skip to content
       </a>
 
-      {isDemo && <DemoBanner />}
-
       <div className="site-shell">
         <header className="site-header">
           <div className="site-header__inner">
-            <Brand href={authenticated ? '/account' : '/login'} />
+            <Brand href="/" />
             <div className="site-header__actions">
               <ThemeToggle />
-              {authenticated ? (
-                <UserMenu user={user} />
-              ) : (
-                <Link className="site-nav__link" href="/login">
-                  Sign in
-                </Link>
-              )}
+              <Link className="site-nav__link" href="/signup">
+                Create account
+              </Link>
             </div>
           </div>
         </header>
