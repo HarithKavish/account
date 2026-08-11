@@ -32,12 +32,26 @@ export const viewport: Viewport = {
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
+    // `suppressHydrationWarning` covers the `data-theme` attribute that the
+    // script below writes onto this element before React exists.
     <html lang="en" suppressHydrationWarning>
-      <head>
-        {/* Applies the stored theme before first paint to avoid a flash. */}
-        <script dangerouslySetInnerHTML={{ __html: themeInitScript }} />
-      </head>
       <body>
+        {/*
+         * Applies the stored theme before first paint to avoid a flash.
+         *
+         * This deliberately lives at the top of <body> rather than in a <head>
+         * element of our own. In the App Router, Next.js owns <head> and
+         * injects the metadata (title, meta, link, preloads) into it. Rendering
+         * an explicit <head> here made the server HTML's head — Next's tags
+         * plus this script — disagree with the client tree, which contained
+         * only this script. React resolved that by tearing the whole head down
+         * and rebuilding it, which is React error #418.
+         *
+         * As the first node in <body> the script still runs synchronously
+         * before any page content is parsed or painted, so the theme is applied
+         * just as early and there is still no flash.
+         */}
+        <script dangerouslySetInnerHTML={{ __html: themeInitScript }} />
         {children}
       </body>
     </html>
