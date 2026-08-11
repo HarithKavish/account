@@ -9,13 +9,18 @@
 import type { AuthError, SignInInput, SignUpInput } from './types';
 
 export const USER_ID_MIN = 3;
-export const USER_ID_MAX = 32;
+/** Long enough that an email address can be used as the login identity. */
+export const USER_ID_MAX = 64;
 export const PASSWORD_MIN = 10;
 export const PASSWORD_MAX = 128;
 export const NAME_MAX = 60;
 
-/** Letters, digits, dot, dash, underscore. Must start with a letter or digit. */
-const USER_ID_PATTERN = /^[a-z0-9][a-z0-9._-]*$/;
+/**
+ * Letters, digits, and . _ - + @ — which permits email-style identities as well
+ * as plain handles. Must start with a letter or digit so an ID can never be
+ * confused with a flag or a path segment.
+ */
+const USER_ID_PATTERN = /^[a-z0-9][a-z0-9._+@-]*$/;
 
 export type FieldErrors = Record<string, string>;
 
@@ -34,7 +39,7 @@ function validateUserId(raw: string): string | null {
   if (value.length < USER_ID_MIN) return `Use at least ${USER_ID_MIN} characters.`;
   if (value.length > USER_ID_MAX) return `Use at most ${USER_ID_MAX} characters.`;
   if (!USER_ID_PATTERN.test(value)) {
-    return 'Use letters, numbers, dots, dashes and underscores, starting with a letter or number.';
+    return 'Use letters, numbers and . _ - + @ only, starting with a letter or number.';
   }
   return null;
 }
@@ -103,9 +108,15 @@ export function toValidationError(errors: FieldErrors): AuthError {
   return { code: 'validation_failed', message, field };
 }
 
-/** Coarse strength signal for the signup form. Not a security control. */
-export function passwordStrength(password: string): 'weak' | 'fair' | 'strong' {
-  if (password.length < PASSWORD_MIN) return 'weak';
+/**
+ * Coarse strength signal for the signup form. Advisory only — length is the
+ * single thing that actually gates submission, so `short` is kept distinct from
+ * `weak` rather than collapsing both into one misleading message.
+ */
+export type PasswordStrength = 'short' | 'weak' | 'fair' | 'strong';
+
+export function passwordStrength(password: string): PasswordStrength {
+  if (password.length < PASSWORD_MIN) return 'short';
   const classes = [/[a-z]/, /[A-Z]/, /[0-9]/, /[^a-zA-Z0-9]/].filter((re) => re.test(password)).length;
   if (password.length >= 16 && classes >= 3) return 'strong';
   if (classes >= 3 || password.length >= 14) return 'fair';

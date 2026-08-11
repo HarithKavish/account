@@ -18,8 +18,9 @@ import {
 } from '@/lib/account/validation';
 
 const STRENGTH_LABEL = {
-  weak: 'Too short — use at least 10 characters.',
-  fair: 'Reasonable. Longer is better than more symbols.',
+  short: `Use at least ${PASSWORD_MIN} characters.`,
+  weak: 'Long enough. A longer phrase is stronger than added symbols.',
+  fair: 'Good.',
   strong: 'Strong.',
 } as const;
 
@@ -107,7 +108,7 @@ function SignupForm() {
             onChange={setUserId}
             autoComplete="username"
             placeholder="your-user-id"
-            hint={`This is how you sign in. Letters, numbers, dots, dashes and underscores, up to ${USER_ID_MAX} characters.`}
+            hint="This is how you sign in. An email address works too. Saved in lowercase."
             error={fieldErrors.userId}
             disabled={pending}
             maxLength={USER_ID_MAX}
