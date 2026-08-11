@@ -12,7 +12,7 @@
     "db:generate": "drizzle-kit generate",
     "db:migrate": "drizzle-kit migrate",
     "db:studio": "drizzle-kit studio",
-    "verify:signup": "tsx scripts/verify-signup.ts"
+    "verify:signup": "tsx scripts/verify-signup.mts"
   },
   "dependencies": {
     "@neondatabase/serverless": "^1.1.0",

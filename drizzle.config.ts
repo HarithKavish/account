@@ -1,5 +1,10 @@
-import 'dotenv/config';
+import { config as loadEnv } from 'dotenv';
 import { defineConfig } from 'drizzle-kit';
+
+// Next.js reads .env.local; plain `dotenv/config` would only read .env, so the
+// CLI would silently disagree with the app about which database it is using.
+loadEnv({ path: '.env.local' });
+loadEnv();
 
 /**
  * Migrations run against the DIRECT (unpooled) Neon connection. Pooled

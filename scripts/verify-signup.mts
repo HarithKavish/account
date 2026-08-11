@@ -18,8 +18,14 @@
  * back. Nothing is deleted.
  */
 
-import 'dotenv/config';
+import { config as loadEnv } from 'dotenv';
 import { Pool, neonConfig } from '@neondatabase/serverless';
+
+// Next.js reads .env.local; plain `dotenv/config` would only read .env and this
+// script would then check a different database than the app writes to.
+loadEnv({ path: '.env.local', quiet: true });
+loadEnv({ quiet: true });
+
 import ws from 'ws';
 import { verify } from '@node-rs/argon2';
 
