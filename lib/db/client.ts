@@ -3,6 +3,7 @@ import 'server-only';
 import { Pool, neonConfig } from '@neondatabase/serverless';
 import { drizzle } from 'drizzle-orm/neon-serverless';
 import ws from 'ws';
+import { readDatabaseEnv } from '../env';
 import * as schema from './schema';
 
 /**
@@ -24,13 +25,11 @@ if (!neonConfig.webSocketConstructor) {
 }
 
 function connectionString(): string {
-  const url = process.env.DATABASE_URL;
-  if (!url) {
-    // Fail loudly and early. A silent fallback here would mean an account
-    // "created" against nothing.
-    throw new Error('DATABASE_URL is not set. Copy .env.example to .env.local and fill it in.');
-  }
-  return url;
+  // Same validation the CLI tooling uses, so the app and migrations agree on
+  // what a valid configuration is — including that the pooled and direct URLs
+  // must address the same database. Throws loudly rather than falling back; a
+  // silent default would mean an account "created" against nothing.
+  return readDatabaseEnv().url;
 }
 
 // Reused across hot reloads in development so a long dev session does not

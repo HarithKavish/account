@@ -3,6 +3,7 @@ import 'server-only';
 import { Ratelimit } from '@upstash/ratelimit';
 import { Redis } from '@upstash/redis';
 import { headers } from 'next/headers';
+import { hasUpstashEnv } from '../env';
 
 /**
  * Rate limiting for account creation.
@@ -22,9 +23,7 @@ const MAX_ATTEMPTS = 5;
 let limiter: Ratelimit | null = null;
 
 export function isRateLimitConfigured(): boolean {
-  return Boolean(
-    process.env.UPSTASH_REDIS_REST_URL && process.env.UPSTASH_REDIS_REST_TOKEN,
-  );
+  return hasUpstashEnv();
 }
 
 function getLimiter(): Ratelimit | null {

@@ -124,11 +124,14 @@ lib/
     rate-limit.ts       Upstash-backed limiter
     validation.ts       Shared rules; authoritative on the server
     types.ts            Domain types
+  env.ts                Environment contract and validation (no file loading)
+  env-cli.ts            Env loading for CLI tooling, via @next/env
   db/
     schema.ts           Drizzle schema
     client.ts           Neon pool + Drizzle instance
 drizzle/                Generated SQL migrations
 scripts/
+  env-check.mts         Reports the resolved environment
   verify-signup.mts     Verification against the real database
 ```
 
@@ -336,6 +339,7 @@ Read from `package.json` and project configuration.
 | Rate limiting | `@upstash/ratelimit` 2.0 with `@upstash/redis` 1.38 |
 | Server boundary | `server-only` |
 | Linting | ESLint 9 with `eslint-config-next` |
+| Env loading | `@next/env` — Next's own loader, shared by app and CLI |
 | Script runner | `tsx` |
 
 The WebSocket pool driver is used rather than Neon's HTTP driver because account
@@ -387,6 +391,7 @@ npm run start           # serve the production build
 ```bash
 npm run typecheck       # tsc --noEmit
 npm run lint            # eslint
+npm run env:check       # report which env files loaded and what they point at
 ```
 
 The production build requires **no** credentials — nothing connects to the
@@ -441,21 +446,55 @@ UPSTASH_REDIS_REST_TOKEN=<token>
 | `UPSTASH_REDIS_REST_URL` | Rate limiter | Signup fails closed without it |
 | `UPSTASH_REDIS_REST_TOKEN` | Rate limiter | Secret |
 
-### Environment file convention
+### Environment loading — one loader, one contract
 
-**This project uses `.env.local`.** Next.js reads `.env.local` automatically,
-but plain `dotenv/config` reads only `.env`. If tooling used the default, the
-CLI and the application could silently point at *different databases*.
+The application and the CLI tooling must never resolve to different databases.
+Three mechanisms enforce that.
 
-To prevent that, `drizzle.config.ts` and `scripts/verify-signup.mts` both load
-`.env.local` explicitly first, then fall back to `.env`:
+**1. A single loader.** Everything that runs outside the Next.js server —
+`drizzle.config.ts`, migrations, `env:check`, `verify:signup` — loads env files
+through `lib/env-cli.ts`, which calls `loadEnvConfig` from **`@next/env`**: the
+same loader Next.js itself runs at startup.
 
-```ts
-loadEnv({ path: '.env.local' });
-loadEnv();
+This matters because Next's precedence is not simply ".env.local then .env" — it
+also considers `.env.development[.local]` and `.env.production[.local]`
+depending on `NODE_ENV`. A hand-rolled loader reading only two of those files
+will eventually disagree with the application. Using Next's own implementation
+makes divergence impossible, because there is only one implementation.
+
+`dotenv` is deliberately **not** a dependency, so a second loader cannot be
+reintroduced by accident.
+
+**2. A single contract.** `lib/env.ts` defines which variables exist and what
+counts as valid. Both the app (`lib/db/client.ts`, `lib/account/rate-limit.ts`)
+and the CLI read through it, so they fail identically on bad configuration.
+
+**3. A consistency assertion.** `DATABASE_URL` (pooled, used by the app) and
+`DATABASE_URL_UNPOOLED` (direct, used by migrations) are separate strings. If
+they ever pointed at different databases, migrations would apply to one database
+while the application read another — silently. `assertSameDatabase()` compares
+host (ignoring Neon's `-pooler` suffix), database name and user, and refuses to
+start on a mismatch.
+
+There is also **no fallback** from one URL to the other. A missing
+`DATABASE_URL_UNPOOLED` is an error, not a quiet switch to running migrations
+through the pooler.
+
+**Checking what resolved:**
+
+```bash
+npm run env:check
 ```
 
-Any new script that touches the database must do the same.
+Prints the env files that were loaded, the database both URLs address, and
+whether Upstash is configured — hosts and database names only, never
+credentials. `db:migrate` and `verify:signup` print the same target line, so any
+disagreement is visible immediately.
+
+On a deployed host there are no env files; values come from the platform's
+environment and the same validation applies.
+
+Any new script that touches the database should import from `lib/env-cli.ts`.
 
 ---
 

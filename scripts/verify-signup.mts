@@ -18,16 +18,10 @@
  * back. Nothing is deleted.
  */
 
-import { config as loadEnv } from 'dotenv';
 import { Pool, neonConfig } from '@neondatabase/serverless';
-
-// Next.js reads .env.local; plain `dotenv/config` would only read .env and this
-// script would then check a different database than the app writes to.
-loadEnv({ path: '.env.local', quiet: true });
-loadEnv({ quiet: true });
-
 import ws from 'ws';
 import { verify } from '@node-rs/argon2';
+import { loadDatabaseUrlForCli } from '../lib/env-cli';
 
 neonConfig.webSocketConstructor = ws;
 
@@ -39,12 +33,13 @@ if (!userIdArg || !passwordArg) {
 }
 
 const userId = userIdArg.trim().toLowerCase();
-const url = process.env.DATABASE_URL_UNPOOLED || process.env.DATABASE_URL;
 
-if (!url) {
-  console.error('DATABASE_URL is not set. Copy .env.example to .env.local and fill it in.');
-  process.exit(2);
-}
+// Shared with drizzle-kit and the application, so this script cannot end up
+// inspecting a different database than the one that was migrated.
+const { unpooledUrl: url, target, files } = loadDatabaseUrlForCli();
+
+console.log(`env files: ${files.length ? files.join(', ') : '(none — using process.env)'}`);
+console.log(`target:    ${target}\n`);
 
 let failures = 0;
 function check(name: string, ok: boolean, detail = '') {
