@@ -1,22 +1,18 @@
 import Link from 'next/link';
+import Image from 'next/image';
 import { site } from '@/lib/config/site';
 
-/** The HarithKavish monogram, drawn to match the ecosystem mark. */
+/** The HarithKavish Account mark shared by the favicon and app chrome. */
 export function BrandMark({ className = 'brand__mark' }: { className?: string }) {
   return (
-    <svg
+    <Image
       className={className}
-      viewBox="0 0 64 64"
-      role="img"
-      aria-label="HarithKavish"
-      focusable="false"
-    >
-      <rect x="1" y="1" width="62" height="62" rx="18" fill="var(--accent)" />
-      <path
-        d="M18 17.5h7.4v11.9h13.2V17.5H46v29H38.6V35.9H25.4v10.6H18z"
-        fill="var(--surface-strong)"
-      />
-    </svg>
+      src="/hk-account-logo.png"
+      alt="HarithKavish Account"
+      width={1024}
+      height={1024}
+      priority
+    />
   );
 }
 
