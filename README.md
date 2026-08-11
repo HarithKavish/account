@@ -4,9 +4,10 @@ The account lifecycle system for the HarithKavish ecosystem.
 
 **Production domain:** https://account.harithkavish.com
 
-> **Deployment status:** the current codebase is **not yet deployed**. The
-> domain still serves the previous static build from an earlier architecture.
-> See [Deployment](#deployment).
+> **Deployment status:** deployed to Vercel production and verified against the
+> production database. The custom domain is attached but **DNS has not been cut
+> over**, so `account.harithkavish.com` still serves the previous static build
+> from GitHub Pages. See [Deployment](#deployment).
 
 ---
 
@@ -547,26 +548,39 @@ Any new script that touches the database should import from `lib/env-cli.ts`.
 
 ## Deployment
 
-### Current production state
+### Current state
 
-`https://account.harithkavish.com` currently serves the **previous static
-build** produced by an earlier architecture, deployed to GitHub Pages. That
-build predates the account/auth separation and still contains a `/login` route.
+The application is **deployed to Vercel production** (project
+`harithkavish-account`) and verified: account creation through the deployed site
+writes to the Neon `production` branch with a real Argon2id hash.
 
-**The current codebase has not been deployed.** The GitHub Pages workflow and
-the static export configuration were removed, because static hosting cannot run
-Server Actions or reach a database. No replacement deployment has been set up:
-the repository is not linked to a hosting provider, and there is no deployment
-workflow.
+`account.harithkavish.com` is **attached to the Vercel project and ownership is
+verified**, but DNS still points at Cloudflare → GitHub Pages, so the domain
+continues to serve the previous static build. The cutover is a manual DNS change.
 
-### Intended production deployment
+**Remaining manual steps** — see the report from the deploying session:
 
-- **Host:** Vercel — chosen for its Node runtime, which `@node-rs/argon2`
-  requires as a native module.
-- **Domain:** `account.harithkavish.com`, with DNS on Cloudflare. The record
-  must be set to **DNS-only** so two CDNs are not stacked.
-- **Environment variables:** all five listed above must be set in the hosting
-  project.
+1. In Cloudflare, replace the `account` record with
+   `CNAME account → <value from vercel domains verify>`, set to **DNS-only**
+   (grey cloud). Two stacked CDNs break TLS negotiation.
+2. Disable GitHub Pages for the repository so the old build cannot return.
+3. Connect the GitHub repository in the Vercel dashboard to enable
+   push-to-deploy and preview deployments — the CLI cannot do this without the
+   Vercel GitHub App being authorised.
+
+### Deployment protection
+
+`ssoProtection` is set to `all_except_custom_domains`: Vercel deployment URLs
+(`*.vercel.app`) require Vercel authentication, while the custom domain is
+public. That is the intended posture — preview builds are not world-readable,
+production is.
+
+### Host
+
+- **Vercel** — chosen for its Node runtime, which `@node-rs/argon2` requires as
+  a native module. Node is pinned to 22.x.
+- Environment variables are set for the Production environment in the Vercel
+  project, separately from local development.
 
 ### Environments
 
