@@ -1,35 +1,25 @@
 /*
  * HarithKavish Account — design system.
  *
- * Tokens are inherited from the HarithKavish ecosystem (harithkavish.com, Forge)
- * so the Account Platform reads as part of the same family. The component layer
- * below is specific to this product: a settings application, not a marketing
- * site.
+ * Colour, elevation and type come from the shared design system, imported
+ * below, so the Account Platform reads as part of the same family without
+ * restating its values. The component layer here is specific to this product:
+ * a settings application, not a marketing site.
+ *
+ * Imported rather than linked in the layout: the App Router owns <head>, and
+ * rendering one here caused React to tear it down and rebuild it (#418).
  */
+
+@import url("https://harithkavish.com/design-system/v1.0.0/tokens.css?v=20260829.2");
 
 :root {
     color-scheme: light;
-    --bg: #f4f9fb;
-    --bg-accent: #e4eef2;
-    --surface: rgba(255, 255, 255, 0.86);
-    --surface-strong: #ffffff;
-    --surface-soft: rgba(255, 255, 255, 0.58);
-    --text: #182028;
-    --muted: #5a646d;
     --faint: #7d888f;
-    --border: rgba(24, 32, 40, 0.11);
     --border-strong: rgba(24, 32, 40, 0.18);
-    --accent: #123f50;
-    --accent-strong: #081f29;
     --accent-soft: rgba(18, 63, 80, 0.08);
-    --pill-bg: rgba(18, 63, 80, 0.08);
-    --shadow: 0 12px 30px rgba(15, 23, 42, 0.05);
-    --shadow-strong: 0 16px 36px rgba(15, 23, 42, 0.08);
-    --header-bg: rgba(244, 249, 251, 0.84);
-    --footer-bg: rgba(244, 249, 251, 0.88);
 
-    --status-healthy: #267f57;
-    --status-healthy-bg: rgba(38, 127, 87, 0.1);
+    --status-healthy: var(--status-live-fg);
+    --status-healthy-bg: var(--status-live-bg);
     --status-healthy-border: rgba(38, 127, 87, 0.2);
     --status-warning: #8b6a31;
     --status-warning-bg: rgba(124, 92, 47, 0.09);
@@ -47,26 +37,11 @@
 
 :root[data-theme='dark'] {
     color-scheme: dark;
-    --bg: #0b1014;
-    --bg-accent: #11181d;
-    --surface: rgba(17, 24, 29, 0.86);
-    --surface-strong: #121a1f;
-    --surface-soft: rgba(24, 33, 39, 0.72);
-    --text: #eef2f4;
-    --muted: #a4afb6;
     --faint: #808a93;
-    --border: rgba(255, 255, 255, 0.11);
     --border-strong: rgba(255, 255, 255, 0.18);
-    --accent: #cedfe6;
-    --accent-strong: #f3f8fa;
     --accent-soft: rgba(206, 223, 230, 0.1);
-    --pill-bg: rgba(206, 223, 230, 0.08);
-    --shadow: 0 12px 30px rgba(0, 0, 0, 0.22);
-    --shadow-strong: 0 16px 36px rgba(0, 0, 0, 0.28);
-    --header-bg: rgba(11, 16, 20, 0.86);
-    --footer-bg: rgba(11, 16, 20, 0.92);
 
-    --status-healthy: #92d3b0;
+    --status-healthy: var(--status-live-fg);
     --status-healthy-bg: rgba(146, 211, 176, 0.1);
     --status-healthy-border: rgba(146, 211, 176, 0.22);
     --status-warning: #d9be8a;
