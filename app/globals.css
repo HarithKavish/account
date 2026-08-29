@@ -625,6 +625,28 @@ code {
     background: var(--surface-soft);
 }
 
+/*
+ * Restated from the shared layer, not invented here.
+ *
+ * This file keeps its own `.button` base, and it is loaded after the design
+ * system's `@import`s — so `.button { background: var(--surface) }` beats the
+ * shared `.button--danger` at equal specificity and the variant silently loses.
+ * Until the local button system is folded into the shared one, a variant that
+ * exists upstream still has to be repeated here to survive the cascade.
+ */
+.button--danger {
+    background: var(--status-danger-bg);
+    color: var(--status-danger-fg);
+    border-color: var(--status-danger-border);
+    box-shadow: none;
+}
+
+.button--danger:hover:not(:disabled) {
+    background: var(--status-danger-fg);
+    color: var(--surface);
+    border-color: transparent;
+}
+
 .button--full {
     width: 100%;
 }
