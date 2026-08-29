@@ -38,7 +38,10 @@ function shareable(host: string): boolean {
 export async function publishDisplayUser(user: DisplayUser, host: string): Promise<void> {
   if (!shareable(host)) return;
   const jar = await cookies();
-  jar.set(COOKIE, encodeURIComponent(JSON.stringify(user)), {
+  // Not encoded here. Next's cookie API encodes the value on the way out, and
+  // the shared store decodes once on the way in — encoding here too produced
+  // %257B, which survives one decode and then fails to parse.
+  jar.set(COOKIE, JSON.stringify(user), {
     domain: DOMAIN,
     path: '/',
     sameSite: 'lax',
