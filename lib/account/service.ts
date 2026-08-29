@@ -21,7 +21,7 @@ function toProfile(row: typeof schema.users.$inferSelect): AccountProfile {
   // spread `passwordHash` into something the client receives.
   return {
     id: row.id,
-    userId: row.userId,
+    userId: row.userId ?? null,
     firstName: row.firstName,
     lastName: row.lastName,
     status: row.status,
