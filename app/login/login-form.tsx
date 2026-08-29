@@ -15,7 +15,17 @@ const initial: LoginState = { error: null };
  * rather than an alternative to having one — which is why every surface sends
  * people here rather than to Google directly.
  */
-export function LoginForm({ next }: { next?: string }) {
+export function LoginForm({
+  next,
+  googleAvailable = true,
+}: {
+  next?: string;
+  /**
+   * Offered only where it is configured. A button that leads to a server error
+   * is worse than no button: it looks like the way in, and is not.
+   */
+  googleAvailable?: boolean;
+}) {
   const [state, action, pending] = useActionState(signInWithPassword, initial);
 
   const withNext = (path: string) =>
@@ -63,13 +73,17 @@ export function LoginForm({ next }: { next?: string }) {
         <a href={createAccountUrl}>Create account</a>
       </p>
 
-      <div className="login-divider" role="separator">
-        <span>or</span>
-      </div>
+      {googleAvailable ? (
+        <>
+          <div className="login-divider" role="separator">
+            <span>or</span>
+          </div>
 
-      <a className="button button--secondary" href={withNext('/api/auth/google/start')}>
-        Sign in with Google
-      </a>
+          <a className="button button--secondary" href={withNext('/api/auth/google/start')}>
+            Sign in with Google
+          </a>
+        </>
+      ) : null}
     </div>
   );
 }
