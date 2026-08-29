@@ -42,3 +42,31 @@ export function ChevronIcon() {
     </svg>
   );
 }
+
+/** Edit. The affordance on a field that is shown rather than typed into. */
+export function PencilIcon() {
+  return (
+    <svg viewBox="0 0 24 24" width="15" height="15" aria-hidden="true" focusable="false"
+         fill="none" stroke="currentColor" strokeWidth="1.8"
+         strokeLinecap="round" strokeLinejoin="round">
+      <path d="M12 20h9" />
+      <path d="M16.5 3.5a2.12 2.12 0 0 1 3 3L7 19l-4 1 1-4Z" />
+    </svg>
+  );
+}
+
+/**
+ * The placeholder person.
+ *
+ * Not an empty circle: a blank where a face belongs reads as something failing
+ * to load. This is the account's picture until it is given another one, and it
+ * is what every provider picture falls back to.
+ */
+export function PersonMark() {
+  return (
+    <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false" fill="currentColor">
+      <path d="M12 12.4a4.2 4.2 0 1 0 0-8.4 4.2 4.2 0 0 0 0 8.4Z" />
+      <path d="M12 14.1c-4.05 0-7.3 2.2-7.3 4.9v.9a.9.9 0 0 0 .9.9h12.8a.9.9 0 0 0 .9-.9v-.9c0-2.7-3.25-4.9-7.3-4.9Z" />
+    </svg>
+  );
+}

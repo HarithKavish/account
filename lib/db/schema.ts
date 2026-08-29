@@ -77,6 +77,16 @@ export const users = pgTable(
 
     status: accountStatus('status').notNull().default('active'),
 
+    /**
+     * Which picture to show for this account.
+     *
+     * `none` is the placeholder mark, and is the default and the fallback: a
+     * provider's picture is borrowed, not owned, so unlinking or a dead URL must
+     * land somewhere rather than nowhere. Stored as the *source* rather than a
+     * copied URL so the picture follows the provider when it changes.
+     */
+    pictureSource: text('picture_source').notNull().default('none'),
+
     createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
     updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),
 
@@ -174,6 +184,13 @@ export const userIdentities = pgTable(
      * account-takeover path.
      */
     emailAtLink: text('email_at_link'),
+
+    /**
+     * The provider's picture URL, as last asserted. Display only, like the email
+     * beside it, and refreshed on each authentication because these URLs expire.
+     * Never a lookup key.
+     */
+    pictureUrl: text('picture_url'),
 
     linkedAt: timestamp('linked_at', { withTimezone: true }).notNull().defaultNow(),
     lastAuthenticatedAt: timestamp('last_authenticated_at', { withTimezone: true }),

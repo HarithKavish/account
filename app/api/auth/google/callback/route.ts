@@ -1,10 +1,11 @@
 import { NextResponse } from 'next/server';
 
 import { resolveFederatedIdentity, issueRecoveryCodes } from '@/lib/account/identity';
+import { linkIdentity, resolvePicture } from '@/lib/account/connections';
 import { completeFlow } from '@/lib/auth/google';
 import { redirectUri, safeNext, takeFlowCookie } from '@/lib/auth/flow';
 import { destinationFor } from '@/lib/auth/handoff';
-import { createSession } from '@/lib/auth/session';
+import { createSession, getSessionUser } from '@/lib/auth/session';
 import { stashRecoveryCodes } from '@/lib/auth/recovery-handoff';
 import { publishDisplayUser } from '@/lib/auth/ecosystem-cookie';
 
@@ -42,6 +43,25 @@ export async function GET(request: Request) {
   const identity = await completeFlow(code, flow, redirectUri(origin));
   if (!identity) return refuse(origin);
 
+  /*
+   * Connecting a provider to the account already signed in.
+   *
+   * Deliberately never reaches `resolveFederatedIdentity`: that function may
+   * create an account, and the whole point of linking is that the account
+   * already exists. No session is issued either — the one in hand is the one
+   * that asked.
+   */
+  if (flow.mode === 'link') {
+    const session = await getSessionUser();
+    if (!session) return refuse(origin);
+
+    const linked = await linkIdentity(session.userId, identity);
+    const back = new URL('/security', origin);
+    if (!linked.ok) back.searchParams.set('error', 'link_failed');
+    else back.searchParams.set('connected', 'google');
+    return NextResponse.redirect(back);
+  }
+
   const resolved = await resolveFederatedIdentity(identity);
   if (!resolved.ok) return refuse(origin);
 
@@ -54,7 +74,7 @@ export async function GET(request: Request) {
     {
       name: `${profile.firstName} ${profile.lastName}`.trim(),
       email: identity.emailVerified ? identity.email : null,
-      picture: null,
+      picture: await resolvePicture(profile.id),
       provider: 'google',
     },
     url.hostname,

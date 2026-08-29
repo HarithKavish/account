@@ -4,6 +4,7 @@ import { headers } from 'next/headers';
 import { redirect } from 'next/navigation';
 
 import { verifyAccountPassword } from '@/lib/account/identity';
+import { resolvePicture } from '@/lib/account/connections';
 import { publishDisplayUser } from '@/lib/auth/ecosystem-cookie';
 import { createSession } from '@/lib/auth/session';
 import { destinationFor } from '@/lib/auth/handoff';
@@ -43,7 +44,8 @@ export async function signInWithPassword(
     {
       name: `${profile.firstName} ${profile.lastName}`.trim(),
       email: null,
-      picture: null,
+      // Whatever the account chose — the placeholder is null, and null is fine.
+      picture: await resolvePicture(profile.id),
       provider: 'password',
     },
     headerList.get('host')?.split(':')[0] ?? '',
