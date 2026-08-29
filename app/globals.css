@@ -10,7 +10,7 @@
  * rendering one here caused React to tear it down and rebuild it (#418).
  */
 
-@import url("https://harithkavish.com/design-system/v1.0.0/tokens.css?v=20260829.2");
+@import url("https://harithkavish.com/design-system/v1.0.0/tokens.css?v=20260829.3");
 
 :root {
     color-scheme: light;
