@@ -5,11 +5,11 @@ The single reconciled contract for `account.harithkavish.com` and
 
 | | |
 | --- | --- |
-| **Version** | Canonical v1.4 — federation amendment, X32 resolved |
+| **Version** | Canonical v1.5 — one deployable, boundary retained |
 | **Supersedes** | Account: `account-auth-contract.md` (Rev 3), `account-auth-private-interface.md` (Rev 1) |
 | **Reconciles** | Auth: `auth-implementation-contract.md`, `account-integration-review.md` (Rev 2) |
 | **Implementation status** | **None.** No code, endpoint, schema, key, migration or deployment resulted from this document. |
-| **Amends** | v1.2 adds §0.4, V23–V28, §5.10, §6.3, §7.6, X32–X37 — federated sign-in. v1.4 resolves X32 (§6.4) and extends §5.2. |
+| **Amends** | v1.2 adds §0.4, V23–V28, §5.10, §6.3, §7.6, X32–X37 — federated sign-in. v1.4 resolves X32 (§6.4) and extends §5.2. v1.5 collapses Account and Auth into one deployable (§0.5, §15), retaining every ownership boundary. |
 
 Auth should be able to build without inventing Account behaviour; Account should
 be able to build without inventing Auth behaviour.
@@ -98,23 +98,65 @@ something to converge on. It authorizes nothing (§13).
 
 ---
 
+### 0.5 Amendment record — one deployable (v1.5)
+
+**The boundary was right. The network between the two halves was not.**
+
+Everything this contract says about *who owns what* is retained without
+exception. What changes is that Account and Auth are **one deployable at one
+origin**, and the private interface of §5 is a module boundary inside it rather
+than HTTP between two services.
+
+**Why now, and why it is not a compromise.**
+
+This document is unusually complete and authorizes nothing. Meanwhile four
+surfaces sign people in with Google outside it — Forge with its own `users`,
+`accounts` and `sessions` tables, and three static sites with a browser-side
+client. The risk to this architecture was never that it is wrong. It is that it
+never ships, and the deviation becomes the system.
+
+A large part of the specified work exists **only because there are two
+processes**: signed service assertions and their key custody (§3), the outage
+grace window (§11), the replay cache (X22), the network topology (X21), and much
+of the timeout budget (X26). None of that protects a user. It protects a network
+hop that a single-operator ecosystem does not need to have.
+
+**V11 is why this had to be decided now.** It records the WebAuthn RP ID as
+`auth.harithkavish.com` and calls it *irreversible* — correctly, because a
+passkey is bound to the RP ID that registered it. **[FACT] No passkey exists:
+no table, no WebAuthn code, no registration.** So the choice was still free, and
+this was the last point at which it would be. It is exercised deliberately
+rather than allowed to lapse.
+
+**The origin is `account.harithkavish.com`.** It already serves the real
+application **[FACT]** — the README's claim that DNS has not been cut over is
+stale. `auth.harithkavish.com` is retained as an alias so nothing that already
+points at it breaks, and so the split remains available.
+
+**Splitting later is a refactor; un-splitting a live authorization server is
+not.** The boundary is kept in the code precisely so that a future third-party
+client, or a decision to operate a standalone AS, is a promotion of a module
+edge to a network edge — not a rewrite of who owns identity.
+
+---
+
 ## 1. Invariants
 
 Binding, not reopened. Any change here is an architecture change.
 
 | # | Invariant |
 | --- | --- |
-| V1 | Auth is the **sole authentication authority** for the first-party ecosystem. |
-| V2 | A valid Auth SSO session admits the user to every registered first-party platform **without re-presenting a password or passkey**. |
+| V1 | The **identity service** is the sole authentication authority for the first-party ecosystem. Account and Auth are its two halves, in one deployable (§0.5). |
+| V2 | A valid SSO session admits the user to every registered first-party platform **without re-presenting a password or passkey**. |
 | V3 | Each application maintains its **own** application session. |
 | V4 | **No shared `.harithkavish.com` authentication cookie.** Enforced by the `__Host-` prefix. |
-| V5 | **Account is itself an OIDC client of Auth.** |
+| V5 | ~~Account is itself an OIDC client of Auth.~~ **Superseded by §0.5.** One deployable is not a client of itself. The account dashboard and the authorization server share a session directly; the ownership boundary of V6–V10 is unchanged. |
 | V6 | Account owns identity records and password hashes. |
-| V7 | **Auth never receives or stores `password_hash`**, in any form or derivative. |
-| V8 | Auth may submit a plaintext password to Account **only** over the authenticated private interface, for verification; never logged, persisted or returned. |
+| V7 | **The authentication half never receives or stores `password_hash`**, in any form or derivative. A module boundary, not a network one — it reads no credential column. |
+| V8 | The authentication half may submit a plaintext password to the account half **only** through the §5 interface, for verification; never logged, persisted or returned. |
 | V9 | Auth performs WebAuthn ceremonies. |
 | V10 | Account owns the passkey credential records. |
-| V11 | **WebAuthn RP ID = `auth.harithkavish.com`.** Irreversible. |
+| V11 | **WebAuthn RP ID = `account.harithkavish.com`.** Changed under §0.5 while no passkey existed. Irreversible **from the first registered passkey**, not before. |
 | V12 | `sub` = immutable Account UUID (`users.id`). Public subject identifiers. |
 | V13 | Authorization Code + **PKCE mandatory for all clients**, `S256` only. |
 | V14 | **Exact** redirect-URI matching. No wildcards, prefixes or suffixes. HTTPS only. |
@@ -126,7 +168,7 @@ Binding, not reopened. Any change here is an architecture change.
 | V20 | **Unknown status values are rejected** and treated as a security anomaly. |
 | V21 | **No application, Account or Auth may create a second authentication mechanism or fallback authentication path.** |
 | V22 | Account signup remains **unauthenticated** — the bootstrap path. |
-| V23 | **Only Auth communicates with an external identity provider.** No application, and not Account, performs a provider flow. |
+| V23 | **Only the identity service communicates with an external identity provider.** No application performs a provider flow. |
 | V24 | **A HarithKavish account is the identity.** A provider identity is a *link* to an account, never an account, and never a `sub`. |
 | V25 | **First federated sign-in creates a HarithKavish account**, over the private interface, at Auth's request. A second creation path to V22, with a different trust basis. |
 | V26 | **Auth does not persist provider tokens.** A provider assertion is consumed to establish identity and discarded — the discipline of V7/V8, applied to federation. |
@@ -1267,16 +1309,13 @@ contract amendment. It cannot be revised at incident time (rule 9).
 
 | # | Question | Blocks | Owner |
 | --- | --- | --- | --- |
-| **X21** | Private interface network topology and hostname | Deployment | Joint |
-| **X22** | Replay nonce-cache location | Interface | Account |
 | **X23** | WebAuthn user verification — required or preferred | Ceremony | Auth |
 | **X24** | Maximum passkeys per account | Registration | Joint |
 | **X25** | Registration handoff mechanism — scope, ACR, or redirect contract | Registration | Joint |
-| **X26** | Timeouts, retry budgets, circuit-breaker thresholds | Every call | Joint |
+| **X26** | Provider and database timeout budgets — reduced by §0.5 | Correctness | Joint |
 | **X27** | Rate-limit thresholds on both sides | Brute-force defence | Joint |
 | **X28** | Audit retention on both sides | Compliance | Joint |
 | **X29** | Break-glass concrete mechanism | Operational readiness | Operator |
-| **X30** | Auth hosting model | Storage guarantees, key custody, all Auth state | Auth |
 | **X31** | Whether `/userinfo` exists | Discovery document | Auth |
 | **X33** | A federated subject resolving to a `deleted` account — refuse permanently, or create a new account for the same person | §5.10 | Joint |
 | **X34** | Whether a person may unlink their only remaining sign-in method, and what happens if they do | §6.3, recovery | Joint |
@@ -1310,9 +1349,48 @@ not after.
 
 ---
 
+## 15. What one deployable removes **[RESOLVED]** — §0.5
+
+Retained in full: §1 ownership (V6–V10, V24–V28), §2 lifetimes, §4 revocation,
+§5's operations and their semantics, §6 schema designs, §7 ceremonies, §9.5
+scopes and claims, §10 break-glass, §12's remaining questions.
+
+Deferred, because each existed to protect a network hop that no longer exists:
+
+| | Was | Now |
+| --- | --- | --- |
+| **§3** service authentication | Asymmetric signed assertions, `private_key_jwt`, key custody and rotation between two services | **Not required in V1.** The caller is the same process. §3 is retained as the specification to implement *if* the halves are ever split, and its `cap:` names stay as the module's internal permission vocabulary |
+| **§11.1** outage grace | 15-minute bounded grace for cached security state during an Account outage | **Not required in V1.** The account half cannot be unreachable from the authentication half without the whole service being down. §11.2 and §11.3 stand |
+| **§8** ceremony-write consistency | Cross-service write ordering | **Reduced to a transaction.** The guarantee is unchanged; the mechanism is the database's |
+| **§9.2** timeouts | Per-call budgets across the interface | **Reduced.** Timeouts against the *provider* (§7.6) and the database remain and are still correctness, not tuning |
+
+Closed by the same change:
+
+| # | Was | Disposition |
+| --- | --- | --- |
+| **X21** | Private interface network topology and hostname | **Closed.** There is no network topology. One origin, `account.harithkavish.com` |
+| **X22** | Replay nonce-cache location | **Closed.** No replayable network call exists. The provider nonce of §7.6 is separate and remains |
+| **X26** | Timeouts, retry budgets, circuit-breaker thresholds | **Reduced to provider and database.** No inter-service budget to agree |
+| **X30** | Auth hosting model | **Closed.** Auth is not separately hosted. Key custody is now only the token-signing key |
+
+**What this does not do.** It does not merge the *data*. The account half owns
+`users`, `user_identities`, `passkeys` and `recovery_codes`; the authentication
+half owns sessions, codes and tokens, and reaches account data only through §5's
+operations. A schema is not a licence to read across the boundary, and the first
+query that does is the point at which splitting later stops being a refactor.
+
+---
+
 ## 13. Implementation boundary
 
-**This document authorizes no implementation.**
+**Schema changes are authorized. Nothing else is.** **[RESOLVED — owner, 2026-08-29]**
+
+Item 4 below is granted: the `passkeys`, `recovery_codes` and `user_identities`
+tables, the idempotency store, the four `account_event_type` values, and making
+`users.password_hash` and `users.user_id` nullable (§6.4). This was the single
+gate every other piece of work stood behind, and it belonged to the owner alone.
+
+Everything else in this section still authorizes no implementation.
 
 Not authorized: any Auth implementation; any OIDC endpoint, flow or discovery
 document; any WebAuthn code; **any provider flow, client registration or
@@ -1333,14 +1411,14 @@ authentication, no credentials, no sessions, no tokens, no calls to Account.
    specification.~~ **[FACT] Done.** All three documents are on Account's `main`
    and readable by Auth. §0.1 is stale: **U6 is unblocked**, and Auth may not
    know it.
-2. **X30, Auth hosting** — gates storage guarantees, key custody and every
-   atomicity requirement in Auth's §5.
-3. **X26** — timeouts are correctness, not tuning.
-4. A **schema-change authorization** covering the `passkeys` table (§6), the
-   `recovery_codes` table (§6.1), the `user_identities` table (§6.3), the
-   idempotency store, and four `account_event_type` values (§6.2, §6.3).
-   Nothing in §5.4–§5.10 can be implemented without it, and **recovery must land
-   before passkeys or federation become a primary factor**.
+2. ~~**X30, Auth hosting**~~ **Closed by §0.5.** Auth is not separately hosted;
+   atomicity is the database's.
+3. **X26** — reduced by §0.5 to provider and database timeouts, which remain
+   correctness rather than tuning.
+4. ~~A **schema-change authorization**~~ **Granted (2026-08-29)** — see above.
+   The ordering constraint it carried still binds: **recovery must land before
+   passkeys or federation become a primary factor.** A federated-only account has
+   exactly one way in, and it is one the ecosystem does not control.
 5. ~~**X32**~~ **Resolved (§6.4).** Both columns become nullable. The migration
    that makes them so is itself unauthorized until item 4 is granted.
 5. This document reviewed and accepted by both projects.
