@@ -6,6 +6,8 @@ import { redirect } from 'next/navigation';
 import { verifyAccountPassword } from '@/lib/account/identity';
 import { publishDisplayUser } from '@/lib/auth/ecosystem-cookie';
 import { createSession } from '@/lib/auth/session';
+import { destinationFor } from '@/lib/auth/handoff';
+import { hostOf } from '@/lib/auth/hosts';
 import { safeNext } from '@/lib/auth/flow';
 
 export interface LoginState {
@@ -47,5 +49,13 @@ export async function signInWithPassword(
     headerList.get('host')?.split(':')[0] ?? '',
   );
 
-  redirect(safeNext(String(formData.get('next') ?? '') || null));
+  /*
+   * Where they land, and with a session when they get there.
+   *
+   * A destination on another of our hostnames cannot see the cookie just set —
+   * `__Host-` is host-only — so the trip goes through that host's adopt route,
+   * which establishes a session of its own. Anywhere else is unchanged.
+   */
+  const destination = safeNext(String(formData.get('next') ?? '') || null);
+  redirect(await destinationFor(destination, hostOf(headerList.get('host')), profile.id));
 }

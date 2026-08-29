@@ -14,9 +14,9 @@
  * rendering one here caused React to tear it down and rebuild it (#418).
  */
 
-@import url("https://harithkavish.com/design-system/v1.0.0/tokens.css?v=20260829.8");
-@import url("https://harithkavish.com/design-system/v1.0.0/base.css?v=20260829.8");
-@import url("https://harithkavish.com/design-system/v1.0.0/components.css?v=20260829.8");
+@import url("https://harithkavish.com/design-system/v1.0.0/tokens.css?v=20260830.1");
+@import url("https://harithkavish.com/design-system/v1.0.0/base.css?v=20260830.1");
+@import url("https://harithkavish.com/design-system/v1.0.0/components.css?v=20260830.1");
 
 :root {
     color-scheme: light;
@@ -325,6 +325,15 @@ code {
     margin: 0 0 0.7rem;
     font-size: 1.02rem;
     font-weight: 650;
+}
+
+/* Sits under a group title to say what the controls below it will do. */
+.group__lead {
+    margin: 0 0 0.9rem;
+    max-width: 60ch;
+    color: var(--muted);
+    font-size: 0.9rem;
+    line-height: 1.55;
 }
 
 .rows {

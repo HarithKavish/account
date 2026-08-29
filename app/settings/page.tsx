@@ -1,49 +1,59 @@
 import type { Metadata } from 'next';
+
 import { AppShell } from '@/components/app-shell';
 import { AccountLayout } from '@/components/account-layout';
-import { PendingAuth, PendingPill } from '@/components/pending-auth';
+import { SignInUnavailable } from '@/components/sign-in-unavailable';
 import { ThemeToggle } from '@/components/theme-toggle';
+import { requireAccount } from '@/lib/auth/require';
+import { ProfileForm } from './profile-form';
 
 export const metadata: Metadata = { title: 'Profile' };
 
-/**
- * Profile. The fields listed are exactly what the `users` table stores — no
- * placeholder values are shown, because there is no signed-in account to read.
- */
-export default function ProfilePage() {
+export const dynamic = 'force-dynamic';
+
+/** Profile. The fields shown are exactly what the `users` table stores. */
+export default async function ProfilePage() {
+  const account = await requireAccount();
+  if (!account) {
+    return (
+      <AppShell>
+        <AccountLayout title="Profile">
+          <SignInUnavailable />
+        </AccountLayout>
+      </AppShell>
+    );
+  }
+
+  const created = new Date(account.createdAt).toLocaleDateString('en-GB', {
+    day: 'numeric',
+    month: 'long',
+    year: 'numeric',
+  });
+
   return (
     <AppShell>
       <AccountLayout title="Profile">
-        <PendingAuth action="Viewing and editing your profile" />
+        <section className="group">
+          <h2 className="group__title">Your name</h2>
+          <ProfileForm firstName={account.firstName} lastName={account.lastName} />
+        </section>
 
         <section className="group">
           <h2 className="group__title">Your details</h2>
           <div className="rows">
             <div className="row">
-              <span className="row__label">First name</span>
-              <span className="row__value row__empty">Available once signed in</span>
-              <span className="row__trailing">
-                <PendingPill />
-              </span>
-            </div>
-            <div className="row">
-              <span className="row__label">Last name</span>
-              <span className="row__value row__empty">Available once signed in</span>
-              <span className="row__trailing">
-                <PendingPill />
-              </span>
-            </div>
-            <div className="row">
               <span className="row__label">User ID</span>
-              <span className="row__value row__empty">
-                Available once signed in
-                <span className="row__note">Chosen when the account is created.</span>
+              <span className="row__value">
+                {account.userId ?? <span className="row__empty">Not set</span>}
+                <span className="row__note">
+                  Chosen when the account is created, and not changed afterwards.
+                </span>
               </span>
               <span className="row__trailing" />
             </div>
             <div className="row">
               <span className="row__label">Created</span>
-              <span className="row__value row__empty">Available once signed in</span>
+              <span className="row__value">{created}</span>
               <span className="row__trailing" />
             </div>
           </div>

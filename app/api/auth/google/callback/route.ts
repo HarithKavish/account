@@ -3,6 +3,7 @@ import { NextResponse } from 'next/server';
 import { resolveFederatedIdentity, issueRecoveryCodes } from '@/lib/account/identity';
 import { completeFlow } from '@/lib/auth/google';
 import { redirectUri, safeNext, takeFlowCookie } from '@/lib/auth/flow';
+import { destinationFor } from '@/lib/auth/handoff';
 import { createSession } from '@/lib/auth/session';
 import { stashRecoveryCodes } from '@/lib/auth/recovery-handoff';
 import { publishDisplayUser } from '@/lib/auth/ecosystem-cookie';
@@ -70,5 +71,14 @@ export async function GET(request: Request) {
     }
   }
 
-  return NextResponse.redirect(`${origin}${safeNext(flow.next)}`);
+  /*
+   * `safeNext` returns an absolute URL for another ecosystem host and a path for
+   * this one, so it is resolved against the origin rather than concatenated with
+   * it — `origin + "https://nexus…"` is not a URL.
+   *
+   * As with password sign-in, a destination on one of our own hostnames goes via
+   * its adopt route so it arrives holding a session.
+   */
+  const destination = new URL(safeNext(flow.next), origin).toString();
+  return NextResponse.redirect(await destinationFor(destination, url.hostname, profile.id));
 }
