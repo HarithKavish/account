@@ -11,6 +11,23 @@ function bad(error: string, status = 400) {
   return NextResponse.json({ error }, { status });
 }
 
+/** `Basic base64(client_id:client_secret)`, per RFC 6749 §2.3.1. */
+function readBasicAuth(header: string | null): { id: string; secret: string } | null {
+  if (!header || !header.toLowerCase().startsWith('basic ')) return null;
+  try {
+    const decoded = Buffer.from(header.slice(6).trim(), 'base64').toString('utf8');
+    const separator = decoded.indexOf(':');
+    if (separator < 0) return null;
+    return {
+      // The spec form-encodes each half before joining them.
+      id: decodeURIComponent(decoded.slice(0, separator)),
+      secret: decodeURIComponent(decoded.slice(separator + 1)),
+    };
+  } catch {
+    return null;
+  }
+}
+
 function secretMatches(expected: string, presented: string): boolean {
   const a = Buffer.from(expected);
   const b = Buffer.from(presented);
@@ -30,12 +47,22 @@ export async function POST(request: Request) {
   const form = await request.formData().catch(() => null);
   if (!form) return bad('invalid_request');
 
-  const clientId = String(form.get('client_id') ?? '');
+  /*
+   * A client may authenticate either way.
+   *
+   * RFC 6749 puts the credentials in an Authorization header and calls the body
+   * form optional, so most libraries reach for Basic first — Auth.js does. A
+   * server that reads only the body rejects them with `invalid_client` and
+   * leaves the client author staring at a correct-looking configuration.
+   */
+  const basic = readBasicAuth(request.headers.get('authorization'));
+  const clientId = basic?.id ?? String(form.get('client_id') ?? '');
+
   const client = findClient(clientId);
   if (!client) return bad('invalid_client', 401);
 
   const expected = clientSecret(client);
-  const presented = String(form.get('client_secret') ?? '');
+  const presented = basic?.secret ?? String(form.get('client_secret') ?? '');
   if (!expected || !presented || !secretMatches(expected, presented)) {
     return bad('invalid_client', 401);
   }
