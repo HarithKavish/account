@@ -17,7 +17,7 @@ export default function HomePage() {
         </p>
 
         <div className="hero__actions">
-          <Link className="button button--primary" href="/signup">
+          <Link className="button button--primary" href="/create_account">
             Create your account
           </Link>
           <Link className="button button--secondary" href="/account">

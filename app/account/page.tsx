@@ -63,7 +63,7 @@ export default function AccountOverviewPage() {
               <span className="row__label">No account yet?</span>
               <span className="row__value">Create one in a minute</span>
               <span className="row__trailing">
-                <Link className="row__action row__action--primary" href="/signup">
+                <Link className="row__action row__action--primary" href="/create_account">
                   Create account
                 </Link>
               </span>

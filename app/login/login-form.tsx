@@ -7,37 +7,35 @@ import { signInWithPassword, type LoginState } from './actions';
 const initial: LoginState = { error: null };
 
 /**
- * Two ways in, and they are not equivalent.
+ * The ecosystem's front door.
  *
- * Google is offered first because it is the one that needs nothing typed. The
- * password form is for accounts that chose a user ID — an account created
- * through Google has neither, and says so rather than failing silently.
+ * Order is deliberate. A HarithKavish account is the identity, so the form for
+ * one comes first. Creating an account is the next thing someone without one
+ * needs. Google is last, and it is a way of proving a HarithKavish account
+ * rather than an alternative to having one — which is why every surface sends
+ * people here rather than to Google directly.
  */
 export function LoginForm({ next }: { next?: string }) {
   const [state, action, pending] = useActionState(signInWithPassword, initial);
-  const googleHref = next
-    ? `/api/auth/google/start?next=${encodeURIComponent(next)}`
-    : '/api/auth/google/start';
+
+  const withNext = (path: string) =>
+    next ? `${path}?next=${encodeURIComponent(next)}` : path;
 
   return (
     <div className="stack" style={{ maxWidth: '26rem', width: '100%' }}>
       <div className="section-head">
-        <h1 className="section-head__title">Sign in</h1>
-        <p className="section-head__lead">to your HarithKavish account</p>
+        <h1 className="section-head__title">Sign in to Nexus</h1>
+        <p className="section-head__lead">
+          One account for everything on harithkavish.com.
+        </p>
       </div>
 
-      <a className="button button--primary" href={googleHref}>
-        Continue with Google
-      </a>
-
-      <p className="subtitle" style={{ textAlign: 'center' }}>
-        or with a user ID
-      </p>
-
       <form action={action} className="stack">
+        {next ? <input type="hidden" name="next" value={next} /> : null}
+
         <label className="field">
           <span>User ID</span>
-          <input name="userId" autoComplete="username" required />
+          <input name="userId" autoComplete="username" required autoFocus />
         </label>
 
         <label className="field">
@@ -51,14 +49,23 @@ export function LoginForm({ next }: { next?: string }) {
           </p>
         ) : null}
 
-        <button type="submit" className="button" disabled={pending}>
+        <button type="submit" className="button button--primary" disabled={pending}>
           {pending ? 'Signing in…' : 'Sign in'}
         </button>
       </form>
 
       <p className="subtitle" style={{ textAlign: 'center' }}>
-        No account? <a href="/signup">Create one</a>
+        New user?{' '}
+        <a href={withNext('/create_account')}>Create account</a>
       </p>
+
+      <div className="login-divider" role="separator">
+        <span>or</span>
+      </div>
+
+      <a className="button button--secondary" href={withNext('/api/auth/google/start')}>
+        Sign in with Google
+      </a>
     </div>
   );
 }

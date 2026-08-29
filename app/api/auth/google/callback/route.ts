@@ -54,6 +54,7 @@ export async function GET(request: Request) {
       name: `${profile.firstName} ${profile.lastName}`.trim(),
       email: identity.emailVerified ? identity.email : null,
       picture: null,
+      provider: 'google',
     },
     url.hostname,
   );

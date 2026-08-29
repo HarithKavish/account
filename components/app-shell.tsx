@@ -29,7 +29,7 @@ export function AppShell({
             <Brand href="/" />
             <div className="site-header__actions">
               <ThemeToggle />
-              <Link className="site-nav__link" href="/signup">
+              <Link className="site-nav__link" href="/create_account">
                 Create account
               </Link>
             </div>

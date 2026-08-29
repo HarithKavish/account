@@ -12,7 +12,7 @@ export default function NotFound() {
           <Link className="button button--primary button--full" href="/">
             Go to the account site
           </Link>
-          <Link className="button button--secondary button--full" href="/signup">
+          <Link className="button button--secondary button--full" href="/create_account">
             Create an account
           </Link>
         </div>

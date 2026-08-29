@@ -24,6 +24,11 @@ export interface DisplayUser {
   name: string;
   email: string | null;
   picture: string | null;
+  /**
+   * How they signed in, so a surface can say so honestly. A Google mark beside
+   * the picture of someone who typed a password would simply be wrong.
+   */
+  provider: 'password' | 'google';
 }
 
 function shareable(host: string): boolean {

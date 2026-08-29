@@ -6,6 +6,7 @@ import { redirect } from 'next/navigation';
 import { verifyAccountPassword } from '@/lib/account/identity';
 import { publishDisplayUser } from '@/lib/auth/ecosystem-cookie';
 import { createSession } from '@/lib/auth/session';
+import { safeNext } from '@/lib/auth/flow';
 
 export interface LoginState {
   error: string | null;
@@ -41,9 +42,10 @@ export async function signInWithPassword(
       name: `${profile.firstName} ${profile.lastName}`.trim(),
       email: null,
       picture: null,
+      provider: 'password',
     },
     headerList.get('host')?.split(':')[0] ?? '',
   );
 
-  redirect('/account');
+  redirect(safeNext(String(formData.get('next') ?? '') || null));
 }
