@@ -6,6 +6,7 @@ import { SignInUnavailable } from '@/components/sign-in-unavailable';
 import { countUnusedRecoveryCodes } from '@/lib/account/identity';
 import { listConnections } from '@/lib/account/connections';
 import { hasPassword } from '@/lib/account/manage';
+import { AUTH_HOST, ACCOUNT_HOST } from '@/lib/auth/hosts';
 import { hasGoogleEnv } from '@/lib/env';
 import { requireAccount } from '@/lib/auth/require';
 import { PasswordForm } from './password-form';
@@ -38,6 +39,21 @@ export default async function SecurityPage({
     listConnections(account.id),
   ]);
   const providersAvailable = hasGoogleEnv();
+
+  /*
+   * Connecting begins at the front door, not here.
+   *
+   * The redirect URI registered with the provider names one host, and the flow's
+   * secrets ride in a host-only cookie. A relative link would start the round
+   * trip on whichever host is showing this page — which is how this arrived as
+   * `redirect_uri_mismatch`.
+   */
+  const connectUrl = (() => {
+    const start = new URL('/api/auth/google/start', `https://${AUTH_HOST}`);
+    start.searchParams.set('mode', 'link');
+    start.searchParams.set('next', `https://${ACCOUNT_HOST}/security`);
+    return start.toString();
+  })();
 
   return (
     <AppShell>
@@ -96,7 +112,7 @@ export default async function SecurityPage({
                   ) : providersAvailable ? (
                     <a
                       className="row__action"
-                      href={`/api/auth/google/start?mode=link&next=${encodeURIComponent('/security')}`}
+                      href={connectUrl}
                     >
                       Connect
                     </a>

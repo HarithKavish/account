@@ -5,6 +5,7 @@ import { linkIdentity, resolvePicture } from '@/lib/account/connections';
 import { completeFlow } from '@/lib/auth/google';
 import { redirectUri, safeNext, takeFlowCookie } from '@/lib/auth/flow';
 import { destinationFor } from '@/lib/auth/handoff';
+import { ACCOUNT_HOST } from '@/lib/auth/hosts';
 import { createSession, getSessionUser } from '@/lib/auth/session';
 import { stashRecoveryCodes } from '@/lib/auth/recovery-handoff';
 import { publishDisplayUser } from '@/lib/auth/ecosystem-cookie';
@@ -40,7 +41,7 @@ export async function GET(request: Request) {
   // someone else's — which is the whole point of carrying it.
   if (!code || !state || state !== flow.state) return refuse(origin);
 
-  const identity = await completeFlow(code, flow, redirectUri(origin));
+  const identity = await completeFlow(code, flow, redirectUri());
   if (!identity) return refuse(origin);
 
   /*
@@ -56,10 +57,20 @@ export async function GET(request: Request) {
     if (!session) return refuse(origin);
 
     const linked = await linkIdentity(session.userId, identity);
-    const back = new URL('/security', origin);
-    if (!linked.ok) back.searchParams.set('error', 'link_failed');
-    else back.searchParams.set('connected', 'google');
-    return NextResponse.redirect(back);
+
+    /*
+     * Back to where the account is managed, which is the account host — this
+     * flow runs on the front door, and landing someone on a management page
+     * there would be the same pages at the wrong address. The handoff gives
+     * that host a session if it does not already hold one.
+     */
+    const back = new URL(safeNext(flow.next), `https://${ACCOUNT_HOST}`);
+    if (linked.ok) back.searchParams.set('connected', 'google');
+    else back.searchParams.set('error', 'link_failed');
+
+    return NextResponse.redirect(
+      await destinationFor(back.toString(), url.hostname, session.userId),
+    );
   }
 
   const resolved = await resolveFederatedIdentity(identity);

@@ -3,6 +3,7 @@ import 'server-only';
 import { cookies } from 'next/headers';
 
 import type { FlowSecrets } from './google';
+import { AUTH_HOST } from './hosts';
 
 /**
  * The in-flight provider round trip.
@@ -31,9 +32,17 @@ interface FlowState extends FlowSecrets {
   mode: FlowMode;
 }
 
-/** The redirect URI must match Google's registration exactly (V14). */
-export function redirectUri(origin: string): string {
-  return `${origin}/api/auth/google/callback`;
+/**
+ * The redirect URI must match Google's registration exactly (V14).
+ *
+ * Pinned to the front door rather than derived from whichever host served the
+ * request. Deriving it meant the URI changed with the address someone happened
+ * to start from, so a flow begun on the account host sent a URI that is not
+ * registered and Google refused it — the failure this constant exists to make
+ * impossible. One front door, one URI, one entry in the console.
+ */
+export function redirectUri(): string {
+  return `https://${AUTH_HOST}/api/auth/google/callback`;
 }
 
 export async function setFlowCookie(
