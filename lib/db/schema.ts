@@ -262,3 +262,77 @@ export const sessions = pgTable(
 export type UserIdentityRow = typeof userIdentities.$inferSelect;
 export type RecoveryCodeRow = typeof recoveryCodes.$inferSelect;
 export type SessionRow = typeof sessions.$inferSelect;
+
+/* -------------------------------------------------------------------------- */
+/* First-party OAuth — how other surfaces get an authenticated subject          */
+/* -------------------------------------------------------------------------- */
+
+/**
+ * An authorization code, in flight.
+ *
+ * Short-lived and single-use (V16). Stored hashed for the same reason a session
+ * token is: what is in the database should not be usable if the database leaks.
+ *
+ * The code is bound to the client, the exact redirect it was issued for, and
+ * the PKCE challenge — so a code intercepted in a redirect is worthless without
+ * the verifier that never left the client.
+ */
+export const oauthCodes = pgTable(
+  'oauth_codes',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+
+    codeHash: text('code_hash').notNull(),
+
+    clientId: text('client_id').notNull(),
+    userId: uuid('user_id')
+      .notNull()
+      .references(() => users.id, { onDelete: 'cascade' }),
+
+    /** Exact match, never a prefix (V14). */
+    redirectUri: text('redirect_uri').notNull(),
+
+    /** S256 only (V13). */
+    codeChallenge: text('code_challenge').notNull(),
+
+    expiresAt: timestamp('expires_at', { withTimezone: true }).notNull(),
+    /** Set the moment it is spent, so a replay finds it already used. */
+    usedAt: timestamp('used_at', { withTimezone: true }),
+
+    createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+  },
+  (table) => [
+    uniqueIndex('oauth_codes_code_hash_unique').on(table.codeHash),
+    index('oauth_codes_expires_at_idx').on(table.expiresAt),
+  ],
+);
+
+/**
+ * An access token, issued to a surface so it can ask who just signed in.
+ *
+ * Five minutes (V15). It exists to be spent once against `/oauth/userinfo` and
+ * is not a session: the surface mints its own from what it learns (V3).
+ */
+export const oauthTokens = pgTable(
+  'oauth_tokens',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+
+    tokenHash: text('token_hash').notNull(),
+
+    clientId: text('client_id').notNull(),
+    userId: uuid('user_id')
+      .notNull()
+      .references(() => users.id, { onDelete: 'cascade' }),
+
+    expiresAt: timestamp('expires_at', { withTimezone: true }).notNull(),
+    createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+  },
+  (table) => [
+    uniqueIndex('oauth_tokens_token_hash_unique').on(table.tokenHash),
+    index('oauth_tokens_expires_at_idx').on(table.expiresAt),
+  ],
+);
+
+export type OauthCodeRow = typeof oauthCodes.$inferSelect;
+export type OauthTokenRow = typeof oauthTokens.$inferSelect;
