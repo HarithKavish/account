@@ -73,7 +73,24 @@ export function safeNext(next: string | null): string {
   if (!next) return '/account';
 
   // A relative path. `//host` is protocol-relative and would leave the site.
-  if (next.startsWith('/') && !next.startsWith('//')) return next;
+  if (next.startsWith('/') && !next.startsWith('//')) {
+    /*
+     * Normalised rather than returned as given.
+     *
+     * `searchParams` hands back a decoded value, so a query that arrived as
+     * `scope=openid+profile` reaches here as `scope=openid profile` — a literal
+     * space. Redirecting to that produces a URL the browser refuses, and the
+     * failure looks like the sign-in broke rather than like the address did.
+     *
+     * Parsing and re-serialising puts the encoding back.
+     */
+    try {
+      const relative = new URL(next, 'https://placeholder.invalid');
+      return relative.pathname + relative.search + relative.hash;
+    } catch {
+      return '/account';
+    }
+  }
 
   try {
     const url = new URL(next);
