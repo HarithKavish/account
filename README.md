@@ -4,10 +4,9 @@ The account lifecycle system for the HarithKavish ecosystem.
 
 **Production domain:** https://account.harithkavish.com
 
-> **Deployment status:** deployed to Vercel production and verified against the
-> production database. The custom domain is attached but **DNS has not been cut
-> over**, so `account.harithkavish.com` still serves the previous static build
-> from GitHub Pages. See [Deployment](#deployment).
+> **Deployment status:** deployed and serving. `account.harithkavish.com`
+> returns this application, verified against the production database. The
+> earlier note that DNS had not been cut over is no longer true.
 
 ---
 
@@ -28,6 +27,12 @@ The account lifecycle system for the HarithKavish ecosystem.
 - [Roadmap](#roadmap)
 
 ---
+
+## Architecture, in one line
+
+This platform and `auth.harithkavish.com` are **one deployable at this origin**,
+with the ownership boundary between them kept in the code. The reasoning is
+[§0.5 and §15 of the canonical contract](docs/account-auth-canonical-contract.md).
 
 ## Purpose
 
@@ -612,15 +617,16 @@ production is.
 
 ### Not implemented
 
-- **Production deployment** of the current codebase
-- **Authentication integration** with `auth.harithkavish.com` — no contract
-  exists and nothing communicates with it
+- **Authentication** — this platform still performs none
+- **Federated sign-in** — specified in the contract (v1.3–v1.5); no code
 - **Profile editing** — UI structure exists; the operation needs identity proof
 - **Password change** — UI structure exists; needs identity proof
 - **Account deletion workflow** — data model and confirmation UI exist, but
   there is deliberately **no deletion endpoint**, as an unauthenticated delete
   would be unsafe
-- **Passkeys** — no table, no WebAuthn code
+- **Passkeys** — no table, no WebAuthn code. That absence is what let the
+  WebAuthn RP ID move to this origin under the contract's §0.5; it is fixed from
+  the first registered passkey
 - Integration with Forge, Nexus or VR
 
 Every management operation that requires knowing *who is asking* renders an
