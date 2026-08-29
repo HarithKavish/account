@@ -5,10 +5,11 @@ The single reconciled contract for `account.harithkavish.com` and
 
 | | |
 | --- | --- |
-| **Version** | Canonical v1.2 — architecture final |
+| **Version** | Canonical v1.3 — federation amendment |
 | **Supersedes** | Account: `account-auth-contract.md` (Rev 3), `account-auth-private-interface.md` (Rev 1) |
 | **Reconciles** | Auth: `auth-implementation-contract.md`, `account-integration-review.md` (Rev 2) |
 | **Implementation status** | **None.** No code, endpoint, schema, key, migration or deployment resulted from this document. |
+| **Amends** | v1.2 adds §0.4, V23–V28, §5.10, §6.3, §7.6, X32–X37 — federated sign-in. |
 
 Auth should be able to build without inventing Account behaviour; Account should
 be able to build without inventing Auth behaviour.
@@ -73,6 +74,30 @@ in Auth §6, extended here in §3.3).
 
 ---
 
+### 0.4 Amendment record — federated sign-in (v1.3)
+
+**[FACT] v1.2 does not mention federated sign-in anywhere.** No occurrence of
+Google, federation, social login, or an upstream identity provider. It is
+specified end to end around a chosen `user_id`, a password, and passkeys.
+
+That is not an oversight to be patched by whichever project builds first. Four
+surfaces are already signing people in with Google today — Forge with its own
+OAuth client and its own `users`, `accounts` and `sessions` tables, and the
+static sites with a browser-side client — none of which this contract governs.
+Every day that continues, the ecosystem accumulates a second identity origin.
+
+This amendment states where federated sign-in belongs, so those surfaces have
+something to converge on. It authorizes nothing (§13).
+
+**Two invariants had to be examined rather than assumed.**
+
+| Invariant | Tension | Disposition |
+| --- | --- | --- |
+| **V21** — no second authentication mechanism or fallback path | A provider is a new way to authenticate | **V21 stands, and federation is inside it.** V21 forbids a path *around* Auth, not a mechanism *within* it. Google is a mechanism Auth operates, exactly as V9 gives Auth the WebAuthn ceremony. A surface talking to Google itself is precisely what V21 forbids — see V23. |
+| **V22** — Account signup remains unauthenticated, the bootstrap path | First federated sign-in must create an account, and it arrives over the authenticated private interface | **Architecture change, recorded.** V22 governs the public path and is unchanged. Federated creation is a second creation path with a different trust basis, stated as V25 rather than folded into V22 silently. |
+
+---
+
 ## 1. Invariants
 
 Binding, not reopened. Any change here is an architecture change.
@@ -101,6 +126,12 @@ Binding, not reopened. Any change here is an architecture change.
 | V20 | **Unknown status values are rejected** and treated as a security anomaly. |
 | V21 | **No application, Account or Auth may create a second authentication mechanism or fallback authentication path.** |
 | V22 | Account signup remains **unauthenticated** — the bootstrap path. |
+| V23 | **Only Auth communicates with an external identity provider.** No application, and not Account, performs a provider flow. |
+| V24 | **A HarithKavish account is the identity.** A provider identity is a *link* to an account, never an account, and never a `sub`. |
+| V25 | **First federated sign-in creates a HarithKavish account**, over the private interface, at Auth's request. A second creation path to V22, with a different trust basis. |
+| V26 | **Auth does not persist provider tokens.** A provider assertion is consumed to establish identity and discarded — the discipline of V7/V8, applied to federation. |
+| V27 | **A provider-verified email address never links to an existing account automatically.** Linking an additional provider requires an authenticated Account session. |
+| V28 | **Google is the only provider in V1.** Adding another is a change to this contract, not a configuration change. |
 
 ---
 
@@ -572,6 +603,58 @@ POST  { "user_id": "<verbatim as typed>", "recovery_code": "<code>",
 
 ---
 
+### 5.10 `POST /internal/v1/identities/resolve` **[RESOLVED as design; NOT authorized to build]**
+
+| | |
+| --- | --- |
+| **Caller** | Auth · `cap: identities.resolve` |
+| **Purpose** | Exchange a provider subject Auth has already verified for the HarithKavish account it belongs to, creating one if the subject is new |
+| **Idempotent** | **Yes**, on `(issuer, subject)`. A repeat returns the same account and creates nothing |
+| **Replay-sensitive** | Moderate — the body carries no credential, but a replay could create an account |
+
+```json
+POST  { "issuer": "https://accounts.google.com",
+        "subject": "<provider sub, verbatim>",
+        "email": "<as asserted|null>",
+        "email_verified": true,
+        "name": "<as asserted|null>",
+        "picture": "<as asserted|null>",
+        "client_context": { "ip": "…", "user_agent": "…", "client_id": "…" } }
+```
+
+- **Auth calls this only after it has verified the assertion itself** — signature,
+  issuer, audience, expiry, nonce. Account performs no provider validation and
+  must not be the thing that trusts the token; it trusts *Auth*, through §3.
+- `subject` is opaque. Account stores it verbatim and never parses it.
+- `email` is carried for **display and for a later, deliberate link** (V27). It is
+  **not** a lookup key. Account must not resolve an account by it.
+
+```json
+200  { "account": { "id": "<uuid>", "status": "active",
+                    "credentials_changed_at": "<ts|null>" },
+       "created": true }
+```
+
+`created` tells Auth whether this sign-in brought a new person into the
+ecosystem. Auth needs it to decide whether a first-run experience is owed — and,
+under §7.6, whether recovery codes must be presented before the session is
+usable.
+
+**There is no negative verdict.** Unlike §5.2, this operation cannot fail with
+"no such account": an unknown subject *is* the create case. The enumeration
+concern of X8 does not arise, because nothing here is keyed by anything a
+stranger can guess.
+
+**`deleted` is the exception, and it is not settled** — see X33. Until it is,
+Account returns `409` and Auth refuses, which is the only behaviour that cannot
+silently resurrect a deleted person.
+
+**Rate limiting is Account's** (§9.3), and it is the account-creation budget, not
+the verification budget. A provider that will mint subjects on demand is
+otherwise a way to mint accounts.
+
+---
+
 ## 6. Passkey record — schema design **[RESOLVED as design; NOT authorized to create]**
 
 ```
@@ -629,6 +712,46 @@ expiry), and two `account_event_type` values — `recovery_codes_generated` and
 
 > **No migration is authorized.** `account_event_type` gains no passkey value
 > either; passkey events are Auth's to audit (§9.4).
+
+---
+
+### 6.3 `user_identities` — schema design **[RESOLVED as design; NOT authorized to create]**
+
+The link V24 describes. One row per provider identity; a person may hold several.
+
+| Column | Type | Notes |
+| --- | --- | --- |
+| `id` | `uuid` PK | `gen_random_uuid()` |
+| `user_id` | `uuid` NOT NULL | FK → `users.id`, `ON DELETE CASCADE` |
+| `issuer` | `text` NOT NULL | e.g. `https://accounts.google.com`. Stored verbatim |
+| `subject` | `text` NOT NULL | The provider's `sub`. Opaque, never parsed |
+| `email_at_link` | `text` NULL | What the provider asserted when linked. Display and audit only |
+| `linked_at` | `timestamptz` NOT NULL | `now()` |
+| `last_authenticated_at` | `timestamptz` NULL | |
+
+- `user_identities_issuer_subject_unique` — **UNIQUE** on `(issuer, subject)`.
+  This is what makes §5.10 idempotent, and what stops one provider identity
+  reaching two accounts.
+- `user_identities_user_id_idx` — on `user_id`.
+- **No index on `email_at_link`.** It is not a lookup key (V27), and an index
+  would invite it to become one.
+
+**Two existing columns block a federated-only account, and neither may be changed
+here.** `users.password_hash` is `NOT NULL` **[FACT]**, and `users.user_id` is a
+`NOT NULL` **UNIQUE** identifier the person chooses **[FACT]**. Someone who only
+ever signs in with Google supplies neither. What that account's `password_hash`
+and public `user_id` should be is **X32**, and it must not be answered by
+whatever the first migration finds convenient.
+
+**Two `account_event_type` values are required**: `identity_linked`,
+`identity_unlinked`. Both are schema changes, and inherit §13's authorization
+requirement alongside the two already named in §6.2.
+
+**Their effect on `credentials_changed_at` (§4.2) is not symmetrical.**
+Unlinking **is** a credentials change — it removes a way in, and sessions
+established through it must not outlive it. Linking is **not** — adding a second
+way in invalidates nothing, and treating it as a change would sign a person out
+for improving their own security.
 
 ---
 
@@ -832,6 +955,47 @@ recorded so it is not discovered later.
   recover in order to cancel it.
 - **Codes are credential material in transit and at rest**: never logged, never
   persisted in cleartext, never returned after generation (§10.4).
+
+---
+
+### 7.6 Federated ceremony **[RESOLVED]** — V23–V28
+
+Auth runs the provider flow. Account owns what it produces. The division is V9
+and V10 again, with Google in place of WebAuthn.
+
+1. The person chooses **Continue with Google** at Auth. No application shows a
+   provider button; an application that does is a path around Auth (V21, V23).
+2. Auth performs the OIDC Authorization Code flow with the provider, PKCE
+   included, and **verifies the resulting assertion itself** — signature against
+   the provider's keys, issuer, audience, expiry, and the nonce it issued.
+3. Auth calls §5.10 with the verified `(issuer, subject)`.
+4. Account resolves the link, or creates an account and the link together, and
+   returns the Account UUID.
+5. Auth mints its own session and tokens. **`sub` is the Account UUID** (V12).
+   The provider's subject never leaves Account's storage and never appears in a
+   token, a claim, or a log line.
+6. Auth discards the provider's tokens (V26).
+
+**A person who signs in with Google and later adds a passkey is one account with
+two ways in.** That is the whole purpose of the indirection at step 4: without
+it, each provider would grow its own population of users.
+
+**Linking a second provider to an existing account is not this ceremony.** It
+requires an authenticated Account session and is initiated from Account (V27).
+An unauthenticated flow that links on a matching email would make any provider
+willing to assert an address into an account-takeover path — the address proves
+the provider checked an inbox, never that the holder controls a HarithKavish
+account.
+
+**Recovery is the sharp edge, and it is worse here than for passwords.** A
+federated-only account has exactly one way in, and it is one the ecosystem does
+not control: a disabled Google account, a revoked grant, or a workspace closing
+locks the person out permanently. **Recovery codes (§7.5) must therefore be
+issued and acknowledged at federated creation**, not offered later — `created:
+true` in §5.10 exists partly to force that moment. This inherits the recovery
+gap already recorded in §12: recovery codes need the `recovery_codes` table,
+which §13 does not authorize. **Federated sign-in must not ship before recovery
+does**, for the same reason passkeys must not.
 
 ---
 
@@ -1065,6 +1229,12 @@ contract amendment. It cannot be revised at incident time (rule 9).
 | **X29** | Break-glass concrete mechanism | Operational readiness | Operator |
 | **X30** | Auth hosting model | Storage guarantees, key custody, all Auth state | Auth |
 | **X31** | Whether `/userinfo` exists | Discovery document | Auth |
+| **X32** | What `password_hash` and the public `user_id` are for a federated-only account — both are `NOT NULL` today, and the person supplies neither | §6.3, any migration | Account |
+| **X33** | A federated subject resolving to a `deleted` account — refuse permanently, or create a new account for the same person | §5.10 | Joint |
+| **X34** | Whether a person may unlink their only remaining sign-in method, and what happens if they do | §6.3, recovery | Joint |
+| **X35** | What Auth does when a provider asserts a subject already linked, but with a different verified email — silently update, or treat as a security event | §5.10 | Joint |
+| **X36** | Migration of the four surfaces signing in with Google today — Forge's `users`/`accounts`/`sessions`, and the static sites' browser-side client | Cutover | Joint |
+| **X37** | Whether Account's own sign-in (V5, Account as an OIDC client of Auth) may itself be federated, or must remain password/passkey | Bootstrap ordering | Joint |
 
 ### Note — the recovery gap, and what closing it now requires
 
@@ -1089,8 +1259,10 @@ not after.
 **This document authorizes no implementation.**
 
 Not authorized: any Auth implementation; any OIDC endpoint, flow or discovery
-document; any WebAuthn code; **creating the `passkeys` or `recovery_codes`
-tables, or any other schema change**; adding any `account_event_type` value;
+document; any WebAuthn code; **any provider flow, client registration or
+federated ceremony**; **creating the `passkeys`, `recovery_codes` or
+`user_identities` tables, or any other schema change**; adding any
+`account_event_type` value;
 generating or storing any recovery code; the private interface on either side;
 generating any key or certificate; registering any client; any deployment; any
 change to Account's application code.
@@ -1101,15 +1273,18 @@ authentication, no credentials, no sessions, no tokens, no calls to Account.
 
 ### Before implementation may begin
 
-1. **Commit Account's `docs/`** so Auth can read the interface specification.
-   This is Auth's U6 and it is currently blocked on authorization, not on design
-   (§0.1).
+1. ~~**Commit Account's `docs/`** so Auth can read the interface
+   specification.~~ **[FACT] Done.** All three documents are on Account's `main`
+   and readable by Auth. §0.1 is stale: **U6 is unblocked**, and Auth may not
+   know it.
 2. **X30, Auth hosting** — gates storage guarantees, key custody and every
    atomicity requirement in Auth's §5.
 3. **X26** — timeouts are correctness, not tuning.
 4. A **schema-change authorization** covering the `passkeys` table (§6), the
-   `recovery_codes` table (§6.1), the idempotency store and two
-   `account_event_type` values (§6.2). Nothing in §5.4–§5.9 can be implemented
-   without it, and **recovery must land before passkeys become a primary
-   factor**.
+   `recovery_codes` table (§6.1), the `user_identities` table (§6.3), the
+   idempotency store, and four `account_event_type` values (§6.2, §6.3).
+   Nothing in §5.4–§5.10 can be implemented without it, and **recovery must land
+   before passkeys or federation become a primary factor**.
+5. **X32** — a federated account cannot be written while `password_hash` and
+   `user_id` are both `NOT NULL`. It is the first thing federation touches.
 5. This document reviewed and accepted by both projects.
