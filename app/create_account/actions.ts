@@ -42,6 +42,8 @@ export async function createAccountAction(formData: FormData): Promise<SignupSta
 
   return {
     status: 'success',
-    account: { userId: result.data.userId, firstName: result.data.firstName },
+    // Signup always chooses a user id, so this is non-null here. A federated
+    // account is the case where it is not, and it does not pass through signup.
+    account: { userId: result.data.userId ?? '', firstName: result.data.firstName },
   };
 }

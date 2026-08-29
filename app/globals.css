@@ -918,3 +918,20 @@ code {
         grid-row: 1 / span 2;
     }
 }
+
+/* "or" between our own sign-in and a provider's, so the two read as
+   alternatives rather than a list. */
+.login-divider {
+  display: flex;
+  align-items: center;
+  gap: var(--space-sm);
+  color: var(--muted);
+  font-size: var(--font-size-sm);
+}
+.login-divider::before,
+.login-divider::after {
+  content: '';
+  flex: 1;
+  height: var(--border-hairline);
+  background: var(--border);
+}

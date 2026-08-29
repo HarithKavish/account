@@ -26,6 +26,17 @@ export interface UpstashEnv {
   token: string;
 }
 
+/**
+ * Google as an upstream identity provider (contract §7.6).
+ *
+ * The secret is read here and used only in a server-to-server token exchange.
+ * It must never reach a browser, and no Google token is stored anywhere (V26).
+ */
+export interface GoogleEnv {
+  clientId: string;
+  clientSecret: string;
+}
+
 class EnvError extends Error {
   constructor(message: string) {
     super(message);
@@ -143,6 +154,18 @@ export function readUpstashEnv(): UpstashEnv {
     url: required('UPSTASH_REDIS_REST_URL'),
     token: required('UPSTASH_REDIS_REST_TOKEN'),
   };
+}
+
+export function readGoogleEnv(): GoogleEnv {
+  return {
+    clientId: required('GOOGLE_CLIENT_ID'),
+    clientSecret: required('GOOGLE_CLIENT_SECRET'),
+  };
+}
+
+/** True when both Google variables are present. Never throws. */
+export function hasGoogleEnv(): boolean {
+  return Boolean(process.env.GOOGLE_CLIENT_ID?.trim() && process.env.GOOGLE_CLIENT_SECRET?.trim());
 }
 
 /** True when both Upstash variables are present. Never throws. */
