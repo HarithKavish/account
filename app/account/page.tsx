@@ -1,9 +1,11 @@
 import type { Metadata } from 'next';
 import Link from 'next/link';
 
+import { Avatar } from '@/components/avatar';
 import { AppShell } from '@/components/app-shell';
 import { AccountLayout } from '@/components/account-layout';
 import { SignInUnavailable } from '@/components/sign-in-unavailable';
+import { resolvePicture } from '@/lib/account/connections';
 import { requireAccount } from '@/lib/auth/require';
 
 export const metadata: Metadata = { title: 'Account' };
@@ -24,12 +26,22 @@ export default async function AccountOverviewPage() {
   }
 
   const name = `${account.firstName} ${account.lastName}`.trim();
+  const picture = await resolvePicture(account.id);
 
   return (
     <AppShell>
       <AccountLayout title="Overview">
         <section className="group">
           <h2 className="group__title">Signed in</h2>
+          <div className="identity">
+            <Avatar src={picture} size={56} />
+            <div className="identity__text">
+              <span className="identity__name">{name}</span>
+              {account.userId ? (
+                <span className="identity__handle">{account.userId}</span>
+              ) : null}
+            </div>
+          </div>
           <div className="rows">
             <div className="row">
               <span className="row__label">Name</span>

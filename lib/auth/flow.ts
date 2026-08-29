@@ -15,9 +15,20 @@ import type { FlowSecrets } from './google';
 const COOKIE = '__Host-hk_oauth';
 const TTL_SECONDS = 600;
 
+/**
+ * What the round trip is for.
+ *
+ * `sign-in` may create an account; `link` never may — it joins a provider to the
+ * account already holding the session. Carried in the flow cookie rather than in
+ * the callback URL so it cannot be switched by editing the address someone comes
+ * back to.
+ */
+export type FlowMode = 'sign-in' | 'link';
+
 interface FlowState extends FlowSecrets {
   /** Where to land afterwards. Validated on the way out, never trusted verbatim. */
   next: string | null;
+  mode: FlowMode;
 }
 
 /** The redirect URI must match Google's registration exactly (V14). */
@@ -25,9 +36,13 @@ export function redirectUri(origin: string): string {
   return `${origin}/api/auth/google/callback`;
 }
 
-export async function setFlowCookie(secrets: FlowSecrets, next: string | null): Promise<void> {
+export async function setFlowCookie(
+  secrets: FlowSecrets,
+  next: string | null,
+  mode: FlowMode = 'sign-in',
+): Promise<void> {
   const jar = await cookies();
-  const state: FlowState = { ...secrets, next };
+  const state: FlowState = { ...secrets, next, mode };
   jar.set(COOKIE, JSON.stringify(state), {
     httpOnly: true,
     secure: true,
@@ -47,7 +62,9 @@ export async function takeFlowCookie(): Promise<FlowState | null> {
   try {
     const parsed = JSON.parse(raw) as FlowState;
     if (!parsed.state || !parsed.nonce || !parsed.codeVerifier) return null;
-    return parsed;
+    // A cookie written before `mode` existed is a sign-in, which is what every
+    // flow was until linking arrived.
+    return { ...parsed, mode: parsed.mode === 'link' ? 'link' : 'sign-in' };
   } catch {
     return null;
   }

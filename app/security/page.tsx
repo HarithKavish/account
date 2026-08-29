@@ -4,7 +4,9 @@ import { AppShell } from '@/components/app-shell';
 import { AccountLayout } from '@/components/account-layout';
 import { SignInUnavailable } from '@/components/sign-in-unavailable';
 import { countUnusedRecoveryCodes } from '@/lib/account/identity';
+import { listConnections } from '@/lib/account/connections';
 import { hasPassword } from '@/lib/account/manage';
+import { hasGoogleEnv } from '@/lib/env';
 import { requireAccount } from '@/lib/auth/require';
 import { PasswordForm } from './password-form';
 import { regenerateRecoveryCodes, signOutEverywhere } from './actions';
@@ -13,7 +15,12 @@ export const metadata: Metadata = { title: 'Security' };
 
 export const dynamic = 'force-dynamic';
 
-export default async function SecurityPage() {
+export default async function SecurityPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ connected?: string; error?: string }>;
+}) {
+  const params = await searchParams;
   const account = await requireAccount();
   if (!account) {
     return (
@@ -25,10 +32,12 @@ export default async function SecurityPage() {
     );
   }
 
-  const [withPassword, remainingCodes] = await Promise.all([
+  const [withPassword, remainingCodes, connections] = await Promise.all([
     hasPassword(account.id),
     countUnusedRecoveryCodes(account.id),
+    listConnections(account.id),
   ]);
+  const providersAvailable = hasGoogleEnv();
 
   return (
     <AppShell>
@@ -42,6 +51,60 @@ export default async function SecurityPage() {
             </p>
           )}
           <PasswordForm hasPassword={withPassword} />
+        </section>
+
+        <section className="group">
+          <h2 className="group__title">Connected accounts</h2>
+          <p className="group__lead">
+            Another way to sign in to this account. Connecting one does not hand it over — your
+            HarithKavish account stays the identity, and this is only a way of reaching it.
+          </p>
+
+          {params.error === 'link_failed' ? (
+            <p className="form-error" role="alert">
+              That account could not be connected. It may already be connected to a different
+              HarithKavish account.
+            </p>
+          ) : null}
+
+          <div className="rows">
+            {connections.map((connection) => (
+              <div className="row" key={connection.id}>
+                <span className="row__label">{connection.label}</span>
+                <span className="row__value">
+                  {connection.connected ? (
+                    <>
+                      Connected
+                      {connection.email ? (
+                        <span className="row__note">{connection.email}</span>
+                      ) : null}
+                    </>
+                  ) : (
+                    <>
+                      <span className="row__empty">Not connected</span>
+                      <span className="row__note">
+                        {providersAvailable
+                          ? `Sign in with ${connection.label} as well as your password.`
+                          : `${connection.label} sign-in is not configured on this deployment.`}
+                      </span>
+                    </>
+                  )}
+                </span>
+                <span className="row__trailing">
+                  {connection.connected ? (
+                    <span className="pill pill--neutral">Connected</span>
+                  ) : providersAvailable ? (
+                    <a
+                      className="row__action"
+                      href={`/api/auth/google/start?mode=link&next=${encodeURIComponent('/security')}`}
+                    >
+                      Connect
+                    </a>
+                  ) : null}
+                </span>
+              </div>
+            ))}
+          </div>
         </section>
 
         <section className="group">

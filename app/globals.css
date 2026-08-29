@@ -14,9 +14,9 @@
  * rendering one here caused React to tear it down and rebuild it (#418).
  */
 
-@import url("https://harithkavish.com/design-system/v1.0.0/tokens.css?v=20260830.1");
-@import url("https://harithkavish.com/design-system/v1.0.0/base.css?v=20260830.1");
-@import url("https://harithkavish.com/design-system/v1.0.0/components.css?v=20260830.1");
+@import url("https://harithkavish.com/design-system/v1.0.0/tokens.css?v=20260830.2");
+@import url("https://harithkavish.com/design-system/v1.0.0/base.css?v=20260830.2");
+@import url("https://harithkavish.com/design-system/v1.0.0/components.css?v=20260830.2");
 
 :root {
     color-scheme: light;
@@ -645,6 +645,148 @@ code {
     background: var(--status-danger-fg);
     color: var(--surface);
     border-color: transparent;
+}
+
+/* A control that is only an icon: the affordance on a row that is read, not
+   filled in. Sized for touch even though the mark inside it is small. */
+.identity {
+    display: flex;
+    align-items: center;
+    gap: 0.9rem;
+    margin-bottom: 1rem;
+}
+
+.identity__text {
+    display: grid;
+    gap: 0.15rem;
+    min-width: 0;
+}
+
+.identity__name {
+    font-size: 1.05rem;
+    font-weight: 650;
+}
+
+.identity__handle {
+    color: var(--muted);
+    font-size: 0.86rem;
+}
+
+.icon-button {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.35rem;
+    padding: 0.4rem 0.55rem;
+    border: 1px solid transparent;
+    border-radius: var(--radius-inner);
+    background: transparent;
+    color: var(--muted);
+    font: inherit;
+    font-size: 0.82rem;
+    cursor: pointer;
+}
+
+.icon-button:hover {
+    border-color: var(--border);
+    background: var(--surface-soft);
+    color: var(--text);
+}
+
+.button--slim {
+    padding: 0.42rem 0.85rem;
+    font-size: 0.85rem;
+}
+
+/* A row mid-edit is a form. It keeps the row's shape so the page does not jump
+   when the input appears. */
+.row--editing {
+    align-items: start;
+}
+
+.row__trailing--actions {
+    display: inline-flex;
+    gap: 0.45rem;
+}
+
+.row__error {
+    display: block;
+    margin-top: 0.35rem;
+    color: var(--status-danger-fg);
+    font-size: 0.82rem;
+}
+
+.group__lead--after {
+    margin: 0.9rem 0 0;
+}
+
+/* The account's picture, and choosing it. */
+.avatar {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    flex: none;
+    border-radius: var(--radius-pill);
+    border: 1px solid var(--border);
+    background: var(--surface-soft);
+    object-fit: cover;
+    overflow: hidden;
+}
+
+.avatar--placeholder {
+    color: var(--muted);
+}
+
+.avatar--placeholder svg {
+    width: 62%;
+    height: 62%;
+    display: block;
+}
+
+.picture {
+    display: flex;
+    align-items: center;
+    gap: 1rem;
+}
+
+.picture--editing {
+    display: grid;
+    gap: 1rem;
+    justify-items: start;
+}
+
+.picture__choices {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.75rem;
+}
+
+.picture__choice {
+    display: grid;
+    justify-items: center;
+    gap: 0.45rem;
+    padding: 0.7rem 0.9rem;
+    border: 1px solid var(--border);
+    border-radius: var(--radius-inner);
+    background: transparent;
+    color: var(--muted);
+    font: inherit;
+    font-size: 0.82rem;
+    cursor: pointer;
+}
+
+.picture__choice:hover {
+    background: var(--surface-soft);
+    color: var(--text);
+}
+
+.picture__choice.is-selected {
+    border-color: var(--accent);
+    color: var(--text);
+    box-shadow: 0 0 0 1px var(--accent);
+}
+
+.picture__choice-label {
+    font-weight: 600;
 }
 
 .button--full {

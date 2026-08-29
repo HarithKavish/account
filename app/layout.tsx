@@ -60,7 +60,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
             would mean the first frame is drawn from no stored preference, which is
             the flash both scripts exist to prevent. */}
         {/* eslint-disable-next-line @next/next/no-sync-scripts */}
-        <script src="https://harithkavish.com/design-system/v1.0.0/harith-store.js?v=20260829.8" />
+        <script src="https://harithkavish.com/design-system/v1.0.0/harith-store.js?v=20260830.2" />
         <script dangerouslySetInnerHTML={{ __html: themeInitScript }} />
         {children}
       </body>

@@ -134,6 +134,7 @@ export async function resolveFederatedIdentity(
       issuer: identity.issuer,
       subject: identity.subject,
       emailAtLink: identity.emailVerified ? identity.email : null,
+      pictureUrl: identity.picture,
     });
 
     await db.insert(schema.accountEvents).values([

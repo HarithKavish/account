@@ -68,6 +68,8 @@ export interface VerifiedProviderIdentity {
   email: string | null;
   emailVerified: boolean;
   name: string | null;
+  /** The provider's picture, as last asserted. Display only, and expires. */
+  picture: string | null;
 }
 
 export interface ResolvedIdentity {

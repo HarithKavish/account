@@ -16,7 +16,12 @@ import { cookies } from 'next/headers';
  * `__Host-` session, verified here, every time — which is precisely why these
  * are two different cookies with two different scopes.
  */
-const COOKIE = 'hk.user';
+/**
+ * Readable by every subdomain, which is the point and also the limit: it says who
+ * appears to be here, never that they may do anything.
+ */
+export const ECOSYSTEM_USER_COOKIE = 'hk.user';
+const COOKIE = ECOSYSTEM_USER_COOKIE;
 const DOMAIN = '.harithkavish.com';
 const TTL_SECONDS = 365 * 24 * 60 * 60;
 

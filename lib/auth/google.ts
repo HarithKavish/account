@@ -111,6 +111,9 @@ export async function completeFlow(
       email: typeof claims.email === 'string' ? claims.email : null,
       emailVerified: claims.email_verified === true,
       name: typeof claims.name === 'string' ? claims.name : null,
+      // Present with the `profile` scope. Kept as the provider's current answer
+      // rather than as anything permanent: these URLs expire.
+      picture: typeof claims.picture === 'string' ? claims.picture : null,
     };
   } catch {
     // Any verification failure is the same answer: this did not authenticate.
