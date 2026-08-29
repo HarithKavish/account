@@ -1,6 +1,7 @@
 import type { Metadata } from 'next';
 
 import { AppShell } from '@/components/app-shell';
+import { hasGoogleEnv } from '@/lib/env';
 import { LoginForm } from './login-form';
 
 export const metadata: Metadata = {
@@ -21,10 +22,12 @@ export default async function LoginPage({
     <AppShell centered>
       {params.error ? (
         <p role="alert" className="form-error">
-          That sign-in did not complete. Please try again.
+          {params.error === 'google_unavailable'
+            ? 'Signing in with Google is not available right now. Use your user ID and password.'
+            : 'That sign-in did not complete. Please try again.'}
         </p>
       ) : null}
-      <LoginForm next={params.next} />
+      <LoginForm next={params.next} googleAvailable={hasGoogleEnv()} />
     </AppShell>
   );
 }
