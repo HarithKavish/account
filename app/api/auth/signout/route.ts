@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server';
 
 import { clearDisplayUser } from '@/lib/auth/ecosystem-cookie';
 import { destroySession } from '@/lib/auth/session';
+import { safeNext } from '@/lib/auth/flow';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
@@ -15,8 +16,15 @@ export const dynamic = 'force-dynamic';
  * showing a face for a browser that no longer has one.
  */
 export async function POST(request: Request) {
-  const origin = new URL(request.url).origin;
+  const url = new URL(request.url);
+
   await destroySession();
-  await clearDisplayUser(new URL(request.url).hostname);
-  return NextResponse.redirect(`${origin}/`, { status: 303 });
+  await clearDisplayUser(url.hostname);
+
+  // Back where they were. Same allow-list as signing in — a sign-out link is
+  // just as good a place to hide a redirect somewhere else.
+  const form = await request.formData().catch(() => null);
+  const next = safeNext(form ? String(form.get('next') ?? '') || null : null);
+
+  return NextResponse.redirect(new URL(next, url.origin), { status: 303 });
 }
