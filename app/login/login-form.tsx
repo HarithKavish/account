@@ -21,6 +21,10 @@ export function LoginForm({ next }: { next?: string }) {
   const withNext = (path: string) =>
     next ? `${path}?next=${encodeURIComponent(next)}` : path;
 
+  /* Creating an account is the account host's job, and this page is served on
+     the auth host. An absolute address means the link is right from either. */
+  const createAccountUrl = withNext('https://account.harithkavish.com/create_account');
+
   return (
     <div className="stack" style={{ maxWidth: '26rem', width: '100%' }}>
       <div className="section-head">
@@ -56,7 +60,7 @@ export function LoginForm({ next }: { next?: string }) {
 
       <p className="subtitle" style={{ textAlign: 'center' }}>
         New user?{' '}
-        <a href={withNext('/create_account')}>Create account</a>
+        <a href={createAccountUrl}>Create account</a>
       </p>
 
       <div className="login-divider" role="separator">
