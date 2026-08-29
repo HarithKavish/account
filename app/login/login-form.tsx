@@ -1,7 +1,8 @@
 'use client';
 
-import { useActionState } from 'react';
+import { useActionState, useState } from 'react';
 
+import { Field } from '@/components/form';
 import { signInWithPassword, type LoginState } from './actions';
 
 const initial: LoginState = { error: null };
@@ -27,6 +28,8 @@ export function LoginForm({
   googleAvailable?: boolean;
 }) {
   const [state, action, pending] = useActionState(signInWithPassword, initial);
+  const [userId, setUserId] = useState('');
+  const [password, setPassword] = useState('');
 
   const withNext = (path: string) =>
     next ? `${path}?next=${encodeURIComponent(next)}` : path;
@@ -47,15 +50,25 @@ export function LoginForm({
       <form action={action} className="stack">
         {next ? <input type="hidden" name="next" value={next} /> : null}
 
-        <label className="field">
-          <span>User ID</span>
-          <input name="userId" autoComplete="username" required autoFocus />
-        </label>
+        {/* The product's own field, so the sign-in page inherits its label,
+            error wiring and password reveal rather than restating them. */}
+        <Field
+          label="User ID"
+          name="userId"
+          value={userId}
+          onChange={setUserId}
+          autoComplete="username"
+          autoFocus
+        />
 
-        <label className="field">
-          <span>Password</span>
-          <input name="password" type="password" autoComplete="current-password" required />
-        </label>
+        <Field
+          label="Password"
+          name="password"
+          type="password"
+          value={password}
+          onChange={setPassword}
+          autoComplete="current-password"
+        />
 
         {state.error ? (
           <p role="alert" className="form-error">
