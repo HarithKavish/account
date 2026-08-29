@@ -102,7 +102,23 @@ export async function destroySession(): Promise<void> {
     const db = getDb();
     await db.delete(schema.sessions).where(eq(schema.sessions.tokenHash, hashToken(token)));
   }
-  jar.delete(COOKIE);
+
+  /*
+   * Overwritten rather than deleted.
+   *
+   * A `__Host-` cookie can only be replaced by one carrying the same
+   * attributes — Secure, Path=/, host-only. A bare delete omits them, the
+   * browser rejects the replacement, and the old cookie stays: the session is
+   * gone from the database, but the browser keeps presenting a dead token
+   * forever.
+   */
+  jar.set(COOKIE, '', {
+    httpOnly: true,
+    secure: true,
+    sameSite: 'lax',
+    path: '/',
+    maxAge: 0,
+  });
 }
 
 /**
