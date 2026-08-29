@@ -12,12 +12,31 @@ import { NextResponse, type NextRequest } from 'next/server';
  * the address they should still be looking at.
  */
 const AUTH_HOST = 'auth.harithkavish.com';
+const ACCOUNT_HOST = 'account.harithkavish.com';
 
 export function middleware(request: NextRequest) {
   const host = request.headers.get('host')?.split(':')[0].toLowerCase();
-  if (host !== AUTH_HOST) return NextResponse.next();
-
   const { pathname, search } = request.nextUrl;
+
+  /*
+   * One front door.
+   *
+   * Signing in can begin on exactly one host, so the provider round trip has
+   * exactly one redirect URI to register. Two would work and would mean two
+   * entries in a console, kept in step by hand, each an exact match (V14) —
+   * and a mismatch is invisible until someone tries to sign in.
+   *
+   * So the account host does not offer a second sign-in page. It sends people
+   * to the front door, and asks to have them back afterwards.
+   */
+  if (host === ACCOUNT_HOST && pathname === '/login') {
+    const front = new URL(`https://${AUTH_HOST}/`);
+    const requested = request.nextUrl.searchParams.get('next');
+    front.searchParams.set('next', requested ?? `https://${ACCOUNT_HOST}/account`);
+    return NextResponse.redirect(front);
+  }
+
+  if (host !== AUTH_HOST) return NextResponse.next();
 
   if (pathname === '/') {
     const url = request.nextUrl.clone();
