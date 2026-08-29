@@ -1,16 +1,22 @@
 /*
  * HarithKavish Account — design system.
  *
- * Colour, elevation and type come from the shared design system, imported
- * below, so the Account Platform reads as part of the same family without
- * restating its values. The component layer here is specific to this product:
- * a settings application, not a marketing site.
+ * The shared design system is imported below — tokens, the base layer, and the
+ * components. The sign-in page is built from the same section heads, stacks and
+ * buttons every other surface uses, and importing only the tokens left those
+ * classes with no styling at all.
+ *
+ * The product layer that follows is specific to this application: a settings
+ * application, not a marketing site. It comes after the imports, so where the
+ * two describe the same class this file wins.
  *
  * Imported rather than linked in the layout: the App Router owns <head>, and
  * rendering one here caused React to tear it down and rebuild it (#418).
  */
 
-@import url("https://harithkavish.com/design-system/v1.0.0/tokens.css?v=20260829.3");
+@import url("https://harithkavish.com/design-system/v1.0.0/tokens.css?v=20260829.8");
+@import url("https://harithkavish.com/design-system/v1.0.0/base.css?v=20260829.8");
+@import url("https://harithkavish.com/design-system/v1.0.0/components.css?v=20260829.8");
 
 :root {
     color-scheme: light;
