@@ -5,10 +5,10 @@
   "engines": {
     "node": "22.x"
   },
-  "description": "HarithKavish Account — centralized identity for HarithKavish platforms.",
+  "description": "HarithKavish Account \u2014 centralized identity for HarithKavish platforms.",
   "scripts": {
     "dev": "next dev",
-    "build": "next build",
+    "build": "tsx scripts/migrate-on-deploy.mts && next build",
     "start": "next start",
     "lint": "eslint",
     "typecheck": "tsc --noEmit",
@@ -17,7 +17,8 @@
     "db:migrate": "drizzle-kit migrate",
     "db:studio": "drizzle-kit studio",
     "verify:signup": "tsx scripts/verify-signup.mts",
-    "db:schema": "tsx scripts/schema-report.mts"
+    "db:schema": "tsx scripts/schema-report.mts",
+    "db:migrate:deploy": "tsx scripts/migrate-on-deploy.mts"
   },
   "dependencies": {
     "@neondatabase/serverless": "^1.1.0",
