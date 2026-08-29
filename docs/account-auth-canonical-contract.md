@@ -5,11 +5,11 @@ The single reconciled contract for `account.harithkavish.com` and
 
 | | |
 | --- | --- |
-| **Version** | Canonical v1.3 — federation amendment |
+| **Version** | Canonical v1.4 — federation amendment, X32 resolved |
 | **Supersedes** | Account: `account-auth-contract.md` (Rev 3), `account-auth-private-interface.md` (Rev 1) |
 | **Reconciles** | Auth: `auth-implementation-contract.md`, `account-integration-review.md` (Rev 2) |
 | **Implementation status** | **None.** No code, endpoint, schema, key, migration or deployment resulted from this document. |
-| **Amends** | v1.2 adds §0.4, V23–V28, §5.10, §6.3, §7.6, X32–X37 — federated sign-in. |
+| **Amends** | v1.2 adds §0.4, V23–V28, §5.10, §6.3, §7.6, X32–X37 — federated sign-in. v1.4 resolves X32 (§6.4) and extends §5.2. |
 
 Auth should be able to build without inventing Account behaviour; Account should
 be able to build without inventing Auth behaviour.
@@ -428,6 +428,11 @@ the distinction, because it refuses either way.
 dummy verification against a fixed hash. Short-circuiting makes timing an
 enumeration oracle regardless of the response body.
 
+An account whose `password_hash` is NULL — federated-only (§6.4) — returns the
+same uniform `{"verified": false}`, and Account performs the same dummy hashing.
+Revealing "this account exists but has no password" would tell an attacker
+exactly which accounts to attack through their provider instead.
+
 `deletion_requested` returns `verified: true` with that status; Auth proceeds
 (V19).
 
@@ -752,6 +757,50 @@ Unlinking **is** a credentials change — it removes a way in, and sessions
 established through it must not outlive it. Linking is **not** — adding a second
 way in invalidates nothing, and treating it as a change would sign a person out
 for improving their own security.
+
+---
+
+### 6.4 A federated-only account's `password_hash` and `user_id` **[RESOLVED]** — resolves X32
+
+Both columns are `NOT NULL` today **[FACT]**, and someone who only ever signs in
+with Google supplies neither. Nothing federated can be written until this is
+answered, so it is answered here rather than by the first migration to need it.
+
+**`password_hash` becomes nullable. NULL means: this account has no password.**
+
+The alternative — storing a sentinel or a hash of a random value — was rejected.
+It puts a credential-shaped value in a credential column, where every future
+reader must know it is not one. §5.2 already hashes against a fixed dummy when no
+account matches; a *stored* sentinel is a different thing, and the first code to
+treat it as real is a password bypass. NULL cannot be verified against by
+accident.
+
+**`user_id` becomes nullable. NULL means: this person has not chosen a public
+identifier.**
+
+`user_id` is the identifier *the person chooses to log in with* **[FACT]**. A
+federated-only account has no such thing, and generating one manufactures a
+choice they did not make — one they may want later, and which would then be
+taken by a string the system invented. Postgres permits many NULLs under a
+UNIQUE index, so `users_user_id_unique` is unaffected for accounts that do have
+one.
+
+A person may claim a `user_id` later, which is also how they would add a password
+sign-in. That is an Account operation and needs an authenticated session; it is
+not part of any ceremony here.
+
+**Consequences, which are the point of resolving this centrally:**
+
+| Where | Rule |
+| --- | --- |
+| §5.2 verify | An account with `password_hash IS NULL` returns the **uniform negative**, and Account still performs equivalent hashing work. A federated-only account must not be distinguishable from a wrong password or a missing account |
+| §5.2 lookup | `user_id IS NULL` matches nothing. A federated-only account is unreachable by password sign-in, which is correct rather than a gap |
+| §5.10 create | Writes neither column. The account is defined by its `user_identities` row |
+| Display | Anything showing `user_id` must tolerate NULL. It is not a fallback for a name |
+| Invariant | **An account must retain at least one usable way in.** With both columns nullable, an unlink can otherwise leave an account no one can reach — the substance of X34 |
+
+**This does not authorize the migration.** Making two columns nullable is a
+schema change and falls under §13 like every other.
 
 ---
 
@@ -1229,12 +1278,19 @@ contract amendment. It cannot be revised at incident time (rule 9).
 | **X29** | Break-glass concrete mechanism | Operational readiness | Operator |
 | **X30** | Auth hosting model | Storage guarantees, key custody, all Auth state | Auth |
 | **X31** | Whether `/userinfo` exists | Discovery document | Auth |
-| **X32** | What `password_hash` and the public `user_id` are for a federated-only account — both are `NOT NULL` today, and the person supplies neither | §6.3, any migration | Account |
 | **X33** | A federated subject resolving to a `deleted` account — refuse permanently, or create a new account for the same person | §5.10 | Joint |
 | **X34** | Whether a person may unlink their only remaining sign-in method, and what happens if they do | §6.3, recovery | Joint |
 | **X35** | What Auth does when a provider asserts a subject already linked, but with a different verified email — silently update, or treat as a security event | §5.10 | Joint |
 | **X36** | Migration of the four surfaces signing in with Google today — Forge's `users`/`accounts`/`sessions`, and the static sites' browser-side client | Cutover | Joint |
 | **X37** | Whether Account's own sign-in (V5, Account as an OIDC client of Auth) may itself be federated, or must remain password/passkey | Bootstrap ordering | Joint |
+
+### Note — X32 is resolved
+
+X32 was the first thing federation touched and it blocked everything downstream,
+so it is resolved in §6.4 rather than left to a migration. Both columns become
+nullable; neither is invented. X34 inherits the consequence — with both nullable,
+an unlink can leave an account unreachable, which is why §6.4 states that an
+account must retain at least one usable way in.
 
 ### Note — the recovery gap, and what closing it now requires
 
@@ -1285,6 +1341,6 @@ authentication, no credentials, no sessions, no tokens, no calls to Account.
    idempotency store, and four `account_event_type` values (§6.2, §6.3).
    Nothing in §5.4–§5.10 can be implemented without it, and **recovery must land
    before passkeys or federation become a primary factor**.
-5. **X32** — a federated account cannot be written while `password_hash` and
-   `user_id` are both `NOT NULL`. It is the first thing federation touches.
+5. ~~**X32**~~ **Resolved (§6.4).** Both columns become nullable. The migration
+   that makes them so is itself unauthorized until item 4 is granted.
 5. This document reviewed and accepted by both projects.
