@@ -1,5 +1,7 @@
 import { NextResponse, type NextRequest } from 'next/server';
 
+import { ACCOUNT_HOST, AUTH_HOST, PATH_HEADER } from '@/lib/auth/hosts';
+
 /**
  * Two hostnames, one deployable (contract §0.5).
  *
@@ -11,8 +13,19 @@ import { NextResponse, type NextRequest } from 'next/server';
  * landing page. A rewrite, not a redirect — the address someone was sent to is
  * the address they should still be looking at.
  */
-const AUTH_HOST = 'auth.harithkavish.com';
-const ACCOUNT_HOST = 'account.harithkavish.com';
+
+/**
+ * Carry the path forward to the server components.
+ *
+ * A page cannot ask for its own URL, and a page that needs a session needs to
+ * say where to come back to. Next's internal routing headers would do it today
+ * and are nobody's contract, so this sets one of our own.
+ */
+function withPath(request: NextRequest): NextResponse {
+  const headers = new Headers(request.headers);
+  headers.set(PATH_HEADER, request.nextUrl.pathname + request.nextUrl.search);
+  return NextResponse.next({ request: { headers } });
+}
 
 export function middleware(request: NextRequest) {
   const host = request.headers.get('host')?.split(':')[0].toLowerCase();
@@ -36,12 +49,14 @@ export function middleware(request: NextRequest) {
     return NextResponse.redirect(front);
   }
 
-  if (host !== AUTH_HOST) return NextResponse.next();
+  if (host !== AUTH_HOST) return withPath(request);
 
   if (pathname === '/') {
     const url = request.nextUrl.clone();
     url.pathname = '/login';
-    return NextResponse.rewrite(url);
+    const headers = new Headers(request.headers);
+    headers.set(PATH_HEADER, pathname + search);
+    return NextResponse.rewrite(url, { request: { headers } });
   }
 
   // Managing an account is the account host's job. Someone who lands on this
@@ -52,7 +67,7 @@ export function middleware(request: NextRequest) {
     );
   }
 
-  return NextResponse.next();
+  return withPath(request);
 }
 
 export const config = {

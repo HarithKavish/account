@@ -259,9 +259,50 @@ export const sessions = pgTable(
   ],
 );
 
+/**
+ * A one-time ticket that moves a signed-in person between our own hostnames.
+ *
+ * The session cookie is `__Host-` prefixed, so it is host-only by definition and
+ * `auth.harithkavish.com` cannot hand it to `account.harithkavish.com`. Widening
+ * it to `.harithkavish.com` would fix that in one line and send the session
+ * token to every subdomain — including the GitHub Pages sites — so it is not an
+ * option.
+ *
+ * Instead the auth host mints one of these, the destination host redeems it once
+ * and establishes its own session. The ticket is worthless without being spent,
+ * is bound to the host allowed to spend it, and lives for a minute.
+ */
+export const sessionTickets = pgTable(
+  'session_tickets',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+
+    userId: uuid('user_id')
+      .notNull()
+      .references(() => users.id, { onDelete: 'cascade' }),
+
+    /** SHA-256 of the ticket, never the ticket. Same reasoning as sessions. */
+    tokenHash: text('token_hash').notNull(),
+
+    /** The only hostname permitted to redeem it. */
+    host: text('host').notNull(),
+
+    createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+    expiresAt: timestamp('expires_at', { withTimezone: true }).notNull(),
+
+    /** Set on redemption. Single use is enforced against this being NULL. */
+    usedAt: timestamp('used_at', { withTimezone: true }),
+  },
+  (table) => [
+    uniqueIndex('session_tickets_token_hash_unique').on(table.tokenHash),
+    index('session_tickets_expires_at_idx').on(table.expiresAt),
+  ],
+);
+
 export type UserIdentityRow = typeof userIdentities.$inferSelect;
 export type RecoveryCodeRow = typeof recoveryCodes.$inferSelect;
 export type SessionRow = typeof sessions.$inferSelect;
+export type SessionTicketRow = typeof sessionTickets.$inferSelect;
 
 /* -------------------------------------------------------------------------- */
 /* First-party OAuth — how other surfaces get an authenticated subject          */
