@@ -47,6 +47,9 @@ export default function PrivacyPage() {
           <strong>Recovery codes</strong>, stored hashed. Each works once.
         </li>
         <li>
+          <strong>Passkeys</strong>, if you add any — see below.
+        </li>
+        <li>
           <strong>Sessions</strong>: a SHA-256 hash of the session token, when it was created, last
           seen and expires, and the browser&rsquo;s user-agent string truncated to 200 characters so
           you can recognise your own sessions. The token itself is never stored.
@@ -122,6 +125,9 @@ export default function PrivacyPage() {
       <ul>
         <li>Your password, in any recoverable form.</li>
         <li>
+          Any biometric data, or any passkey private key. Neither is ever sent to this service.
+        </li>
+        <li>
           Provider access tokens, refresh tokens or ID tokens — including Gravatar&rsquo;s, which
           would otherwise never expire.
         </li>
@@ -146,6 +152,36 @@ export default function PrivacyPage() {
         type someone else&rsquo;s when creating an account, wait, and collect that person&rsquo;s
         next sign-in through a provider. So an unconfirmed address is stored, shown to you, and used
         for nothing else.
+      </p>
+
+      <h2>Passkeys</h2>
+      <p>
+        A passkey lets you sign in with your fingerprint, face, device PIN or a security key. The
+        check happens entirely on your device.
+      </p>
+      <p>
+        <strong>No biometric data ever reaches this service.</strong> Not a fingerprint, not a face,
+        not a Windows Hello PIN, not anything derived from them. Your device verifies you and then
+        signs a one-time challenge; what arrives here is that signature.
+      </p>
+      <p>For each passkey, this service stores only public information:</p>
+      <ul>
+        <li>The credential&rsquo;s public key and its identifier.</li>
+        <li>
+          A signature counter, and whether the passkey is synced across your devices — both
+          reported by the authenticator.
+        </li>
+        <li>
+          How the authenticator can be reached — USB, NFC, or built into the device — and the name
+          you give the passkey. This service is not told what device you used, so it does not claim
+          to know.
+        </li>
+        <li>When it was added and when it was last used.</li>
+      </ul>
+      <p>
+        The private key never leaves your device and is never shared with this service. Removing a
+        passkey here deletes what is stored and stops it signing you in; the credential on your
+        device is yours to remove there.
       </p>
 
       <h2>Cookies</h2>

@@ -12,6 +12,8 @@ import { requireAccount } from '@/lib/auth/require';
 import { LockoutWarning } from '@/components/lockout-warning';
 import { PasswordForm } from './password-form';
 import { UserIdForm } from './user-id-form';
+import { Passkeys } from './passkeys';
+import { listPasskeys } from '@/lib/account/passkeys';
 import { regenerateRecoveryCodes, signOutEverywhere } from './actions';
 
 export const metadata: Metadata = { title: 'Security' };
@@ -35,10 +37,11 @@ export default async function SecurityPage({
     );
   }
 
-  const [withPassword, remainingCodes, connections] = await Promise.all([
+  const [withPassword, remainingCodes, connections, passkeys] = await Promise.all([
     hasPassword(account.id),
     countUnusedRecoveryCodes(account.id),
     listConnections(account.id),
+    listPasskeys(account.id),
   ]);
   const available: Record<string, boolean> = {
     google: hasGoogleEnv(),
@@ -85,6 +88,11 @@ export default async function SecurityPage({
             </p>
           )}
           <PasswordForm hasPassword={withPassword} />
+        </section>
+
+        <section className="group">
+          <h2 className="group__title">Passkeys</h2>
+          <Passkeys passkeys={passkeys} />
         </section>
 
         <section className="group">

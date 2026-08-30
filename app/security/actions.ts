@@ -3,11 +3,45 @@
 import { revalidatePath } from 'next/cache';
 
 import { changePassword, chooseUserId } from '@/lib/account/manage';
+import { removePasskey, renamePasskey } from '@/lib/account/passkeys';
 import { issueRecoveryCodes } from '@/lib/account/identity';
 import { requireAccount } from '@/lib/auth/require';
 import { destroyAllSessions } from '@/lib/auth/session';
 import { stashRecoveryCodes } from '@/lib/auth/recovery-handoff';
 import { redirect } from 'next/navigation';
+
+/**
+ * Remove one passkey.
+ *
+ * The account comes from the session, never from the request, and ownership is
+ * part of the delete itself — a credential id from a client is a request, not a
+ * fact.
+ */
+export async function deletePasskey(id: string): Promise<{ error: string | null }> {
+  const account = await requireAccount();
+  if (!account) return { error: 'You are not signed in.' };
+
+  const removed = await removePasskey(account.id, id);
+  if (!removed) return { error: 'That passkey could not be removed.' };
+
+  revalidatePath('/security');
+  return { error: null };
+}
+
+/** Rename one passkey. Same ownership rule. */
+export async function renamePasskeyAction(
+  id: string,
+  displayName: string,
+): Promise<{ error: string | null }> {
+  const account = await requireAccount();
+  if (!account) return { error: 'You are not signed in.' };
+
+  const renamed = await renamePasskey(account.id, id, displayName);
+  if (!renamed) return { error: 'That passkey could not be renamed.' };
+
+  revalidatePath('/security');
+  return { error: null };
+}
 
 export interface UserIdState {
   error: string | null;

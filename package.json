@@ -18,11 +18,14 @@
     "db:studio": "drizzle-kit studio",
     "verify:signup": "tsx scripts/verify-signup.mts",
     "db:schema": "tsx scripts/schema-report.mts",
-    "db:migrate:deploy": "tsx scripts/migrate-on-deploy.mts"
+    "db:migrate:deploy": "tsx scripts/migrate-on-deploy.mts",
+    "verify:passkeys": "tsx scripts/verify-passkeys.mts"
   },
   "dependencies": {
     "@neondatabase/serverless": "^1.1.0",
     "@node-rs/argon2": "^2.0.2",
+    "@simplewebauthn/browser": "^13.3.0",
+    "@simplewebauthn/server": "^13.3.3",
     "@upstash/ratelimit": "^2.0.8",
     "@upstash/redis": "^1.38.2",
     "drizzle-orm": "^0.45.2",
