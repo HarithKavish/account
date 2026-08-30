@@ -66,7 +66,9 @@ export async function GET(request: Request) {
      */
     const back = new URL(safeNext(flow.next), `https://${ACCOUNT_HOST}`);
     if (linked.ok) back.searchParams.set('connected', 'google');
-    else back.searchParams.set('error', 'link_failed');
+    // Two very different problems: one the person can act on, one they cannot.
+    // Telling them apart is the difference between a next step and a dead end.
+    else back.searchParams.set('error', linked.error.code === 'identity_taken' ? 'link_taken' : 'link_failed');
 
     return NextResponse.redirect(
       await destinationFor(back.toString(), url.hostname, session.userId),

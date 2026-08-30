@@ -93,8 +93,8 @@ export async function linkIdentity(
       return {
         ok: false,
         error: {
-          code: 'validation_failed',
-          message: 'That Google account is already connected to a different HarithKavish account.',
+          code: 'identity_taken',
+          message: 'That account is already connected to a different HarithKavish account.',
         },
       };
     }

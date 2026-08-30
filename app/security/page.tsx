@@ -76,10 +76,23 @@ export default async function SecurityPage({
             HarithKavish account stays the identity, and this is only a way of reaching it.
           </p>
 
+          {params.error === 'link_taken' ? (
+            <p className="form-error" role="alert">
+              That account is already connected to a different HarithKavish account. A provider
+              account can only reach one of ours, so sign in to that one and delete it, or connect a
+              different account here.
+            </p>
+          ) : null}
+
           {params.error === 'link_failed' ? (
             <p className="form-error" role="alert">
-              That account could not be connected. It may already be connected to a different
-              HarithKavish account.
+              That account could not be connected. Nothing changed — try again.
+            </p>
+          ) : null}
+
+          {params.connected ? (
+            <p className="form-note" role="status">
+              Connected. You can use it as your profile picture under Profile.
             </p>
           ) : null}
 
