@@ -26,26 +26,35 @@ export async function GET(request: Request) {
     return target;
   };
 
-  const flow = await takeFlowCookie();
-  if (!flow || flow.provider !== 'gravatar') {
+  // Every guard below produces the same page, so the log is the only place the
+  // difference survives.
+  const refuse = (why: string, detail?: unknown) => {
+    console.error(`[gravatar] callback refused: ${why}`, detail ?? '');
     return NextResponse.redirect(back({ error: 'link_failed' }));
-  }
+  };
 
-  if (url.searchParams.get('error')) {
-    return NextResponse.redirect(back({ error: 'link_failed' }));
+  const flow = await takeFlowCookie();
+  if (!flow) return refuse('no flow cookie');
+  if (flow.provider !== 'gravatar') return refuse('flow belongs to another provider', flow.provider);
+
+  const returned = url.searchParams.get('error');
+  if (returned) {
+    return refuse('provider returned an error', {
+      error: returned,
+      description: url.searchParams.get('error_description')?.slice(0, 200),
+    });
   }
 
   const code = url.searchParams.get('code');
   const state = url.searchParams.get('state');
-  if (!code || !state || state !== flow.state) {
-    return NextResponse.redirect(back({ error: 'link_failed' }));
-  }
+  if (!code) return refuse('no code in callback');
+  if (!state || state !== flow.state) return refuse('state did not match');
 
   const session = await getSessionUser();
-  if (!session) return NextResponse.redirect(back({ error: 'link_failed' }));
+  if (!session) return refuse('no session on this host');
 
   const identity = await completeFlow(code, gravatarRedirectUri());
-  if (!identity) return NextResponse.redirect(back({ error: 'link_failed' }));
+  if (!identity) return refuse('flow did not complete');
 
   const linked = await linkProfileProvider(session.userId, {
     issuer: identity.issuer,
