@@ -50,6 +50,11 @@ export async function POST(request: Request) {
     // No body or invalid JSON: default to client-device
   }
 
+  const userName =
+    user.userId || user.email || `${user.firstName} ${user.lastName}`.trim() || 'User';
+  const userDisplayName =
+    `${user.firstName} ${user.lastName}`.trim() || user.userId || user.email || 'User';
+
   const options = await generateRegistrationOptions({
     rpName: RP_NAME,
     rpID: RP_ID,
@@ -60,8 +65,9 @@ export async function POST(request: Request) {
      * the one identifier that never changes and says nothing about the person.
      */
     userID: new TextEncoder().encode(user.id),
-    userName: user.userId ?? user.email ?? `${user.firstName} ${user.lastName}`.trim(),
-    userDisplayName: `${user.firstName} ${user.lastName}`.trim(),
+    userName,
+    userDisplayName,
+    supportedAlgorithmIDs: [-7, -257],
     // Nothing here needs to know which authenticator model was used, and asking
     // for attestation would collect exactly that.
     attestationType: 'none',
