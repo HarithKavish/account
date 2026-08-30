@@ -106,11 +106,17 @@ export function Passkeys({ passkeys }: { passkeys: Passkey[] }) {
         setError('This device already has a passkey for your account.');
       } else {
         console.error('[passkey] registration failed', cause);
-        // The error's name is not a secret, and it is the one thing that makes a
-        // report from a device nobody here can inspect actionable.
+        // Show the full error message from the platform (e.g. Android Credential
+        // Manager) so we can diagnose exactly what is failing.
+        const msg = cause instanceof Error ? cause.message : '';
+        const causeMsg =
+          cause instanceof Error && cause.cause instanceof Error
+            ? cause.cause.message
+            : '';
+        const detail = [name, msg, causeMsg].filter(Boolean).join(' — ');
         setError(
-          name
-            ? `Your device could not create a passkey (${name}).`
+          detail
+            ? `Passkey creation failed: ${detail}`
             : 'Your device could not create a passkey.',
         );
       }
