@@ -649,6 +649,76 @@ code {
 
 /* A control that is only an icon: the affordance on a row that is read, not
    filled in. Sized for touch even though the mark inside it is small. */
+.site-footer__links {
+    display: inline-flex;
+    gap: 1.1rem;
+}
+
+.site-footer__links a {
+    color: inherit;
+}
+
+/* A document, not an interface. Measure is capped so the lines stay readable
+   and the headings carry the structure rather than boxes. */
+.legal {
+    max-width: 68ch;
+    margin: 0 auto;
+    padding: 0 0 3rem;
+}
+
+.legal__title {
+    margin: 0 0 0.35rem;
+    font-size: 1.9rem;
+    font-weight: 680;
+    letter-spacing: -0.01em;
+}
+
+.legal__meta {
+    margin: 0 0 2rem;
+    color: var(--muted);
+    font-size: 0.85rem;
+}
+
+.legal h2 {
+    margin: 2.1rem 0 0.6rem;
+    font-size: 1.05rem;
+    font-weight: 650;
+}
+
+.legal p,
+.legal li {
+    color: var(--muted);
+    font-size: 0.94rem;
+    line-height: 1.65;
+}
+
+.legal p {
+    margin: 0 0 0.9rem;
+}
+
+.legal ul {
+    margin: 0 0 1.1rem;
+    padding-left: 1.15rem;
+    display: grid;
+    gap: 0.45rem;
+}
+
+.legal strong {
+    color: var(--text);
+    font-weight: 620;
+}
+
+.legal a {
+    color: var(--text);
+    text-decoration: underline;
+    text-underline-offset: 0.18em;
+}
+
+.mono {
+    font-family: var(--font-mono, ui-monospace, SFMono-Regular, Menlo, monospace);
+    font-size: 0.92em;
+}
+
 .identity {
     display: flex;
     align-items: center;
