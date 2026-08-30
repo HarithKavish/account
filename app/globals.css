@@ -658,6 +658,29 @@ code {
     color: inherit;
 }
 
+.provider-profile__value {
+    overflow-wrap: anywhere;
+}
+
+.provider-profile__list {
+    margin: 0;
+    padding: 0;
+    list-style: none;
+    display: grid;
+    gap: 0.3rem;
+}
+
+.provider-profile__list .provider-profile__list {
+    margin-top: 0.25rem;
+    padding-left: 0.8rem;
+    border-left: 1px solid var(--border);
+}
+
+.provider-profile__sublabel {
+    color: var(--muted);
+    font-size: 0.82rem;
+}
+
 /* A document, not an interface. Measure is capped so the lines stay readable
    and the headings carry the structure rather than boxes. */
 .legal {
@@ -677,6 +700,12 @@ code {
     margin: 0 0 2rem;
     color: var(--muted);
     font-size: 0.85rem;
+}
+
+.legal h3 {
+    margin: 1.5rem 0 0.5rem;
+    font-size: 0.95rem;
+    font-weight: 640;
 }
 
 .legal h2 {

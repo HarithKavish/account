@@ -29,7 +29,8 @@ export async function GET(request: Request) {
   const origin = url.origin;
 
   const flow = await takeFlowCookie();
-  if (!flow) return refuse(origin);
+  // A Gravatar trip cannot be redeemed here, however it arrives.
+  if (!flow || flow.provider !== 'google') return refuse(origin);
 
   // Google reports its own failures — a denied consent, a cancelled prompt.
   if (url.searchParams.get('error')) return refuse(origin);

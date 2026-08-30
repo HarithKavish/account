@@ -32,6 +32,18 @@ export interface UpstashEnv {
  * The secret is read here and used only in a server-to-server token exchange.
  * It must never reach a browser, and no Google token is stored anywhere (V26).
  */
+/**
+ * Gravatar as a profile source (contract §7.6, connect-only).
+ *
+ * Registered at gravatar.com/developers; the flow itself runs against
+ * WordPress.com, which is what issues Gravatar's tokens. The secret must never
+ * reach a browser, and the token is discarded the moment the profile is read.
+ */
+export interface GravatarEnv {
+  clientId: string;
+  clientSecret: string;
+}
+
 export interface GoogleEnv {
   clientId: string;
   clientSecret: string;
@@ -154,6 +166,20 @@ export function readUpstashEnv(): UpstashEnv {
     url: required('UPSTASH_REDIS_REST_URL'),
     token: required('UPSTASH_REDIS_REST_TOKEN'),
   };
+}
+
+export function readGravatarEnv(): GravatarEnv {
+  return {
+    clientId: required('GRAVATAR_CLIENT_ID'),
+    clientSecret: required('GRAVATAR_CLIENT_SECRET'),
+  };
+}
+
+/** True when both Gravatar variables are present. Never throws. */
+export function hasGravatarEnv(): boolean {
+  return Boolean(
+    process.env.GRAVATAR_CLIENT_ID?.trim() && process.env.GRAVATAR_CLIENT_SECRET?.trim(),
+  );
 }
 
 export function readGoogleEnv(): GoogleEnv {

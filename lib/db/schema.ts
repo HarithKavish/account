@@ -192,6 +192,17 @@ export const userIdentities = pgTable(
      */
     pictureUrl: text('picture_url'),
 
+    /**
+     * What the provider said about the person when they connected it.
+     *
+     * Display only, and a snapshot rather than a live view: the token that could
+     * refresh it is discarded at connect time (V26), so this is what was true
+     * then and goes stale until they reconnect. Only providers that offer a
+     * profile write here — a provider used purely to prove an identity has
+     * nothing to put in it.
+     */
+    profile: jsonb('profile').$type<Record<string, unknown>>(),
+
     linkedAt: timestamp('linked_at', { withTimezone: true }).notNull().defaultNow(),
     lastAuthenticatedAt: timestamp('last_authenticated_at', { withTimezone: true }),
   },

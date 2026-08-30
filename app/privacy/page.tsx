@@ -54,6 +54,12 @@ export default function PrivacyPage() {
 
       <h2>If you connect a provider</h2>
       <p>
+        Two kinds of provider can be connected, and they do different things.{' '}
+        <strong>Google</strong> proves who you are — it can sign you in.{' '}
+        <strong>Gravatar</strong> cannot sign you in at all; it only lends this account your
+        picture and the profile you have written there.
+      </p>
+      <p>
         Connecting a provider such as Google adds another way to reach your account. It does not
         hand your account to them, and your HarithKavish account remains the identity.
       </p>
@@ -86,10 +92,33 @@ export default function PrivacyPage() {
         you can return to it at any time.
       </p>
 
+      <h3>Gravatar in particular</h3>
+      <p>
+        If you connect a Gravatar, <strong>the whole profile it returns is stored</strong> and shown
+        back to you on your profile page. That is everything you have chosen to put on your Gravatar
+        — which may include your name, description, location, job title, company, pronouns, links,
+        interests, verified accounts, and, if you have added them there,{' '}
+        <strong>contact details and payment information</strong>.
+      </p>
+      <p>
+        None of it is asked for field by field: it is the profile as Gravatar hands it over. If you
+        would rather this service did not hold some part of it, remove it from your Gravatar profile
+        and reconnect, or disconnect and it goes with the connection.
+      </p>
+      <p>
+        It is a <strong>snapshot, not a live view</strong>. The token that could refresh it is
+        discarded as soon as the profile is read — Gravatar&rsquo;s server-side tokens never expire,
+        and keeping one would mean holding a credential with no end date. So what you see is what
+        was true when you connected, until you reconnect.
+      </p>
+
       <h2>What is not stored</h2>
       <ul>
         <li>Your password, in any recoverable form.</li>
-        <li>Provider access tokens, refresh tokens or ID tokens.</li>
+        <li>
+          Provider access tokens, refresh tokens or ID tokens — including Gravatar&rsquo;s, which
+          would otherwise never expire.
+        </li>
         <li>Advertising or analytics identifiers. There are no third-party trackers on this site.</li>
         <li>An email address for password-based accounts. None is asked for.</li>
       </ul>
@@ -126,6 +155,10 @@ export default function PrivacyPage() {
         <li><strong>Upstash</strong> — the rate-limit counter.</li>
         <li>
           <strong>Google</strong> — only if you choose to sign in with or connect it.
+        </li>
+        <li>
+          <strong>Gravatar</strong> (and WordPress.com, which issues its tokens) — only if you
+          choose to connect it.
         </li>
       </ul>
       <p>Your account is not sold, rented or shared with anyone else.</p>

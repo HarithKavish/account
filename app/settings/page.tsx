@@ -3,6 +3,7 @@ import { eq } from 'drizzle-orm';
 
 import { AppShell } from '@/components/app-shell';
 import { AccountLayout } from '@/components/account-layout';
+import { ProviderProfile } from '@/components/provider-profile';
 import { SignInUnavailable } from '@/components/sign-in-unavailable';
 import { ThemeToggle } from '@/components/theme-toggle';
 import { listConnections } from '@/lib/account/connections';
@@ -74,6 +75,18 @@ export default async function ProfilePage() {
             </p>
           ) : null}
         </section>
+
+        {connections
+          .filter((connection) => connection.connected && connection.hasProfile && connection.profile)
+          .map((connection) => (
+            <section className="group" key={connection.id}>
+              <h2 className="group__title">From {connection.label}</h2>
+              <ProviderProfile
+                providerLabel={connection.label}
+                profile={connection.profile as Record<string, unknown>}
+              />
+            </section>
+          ))}
 
         <section className="group">
           <h2 className="group__title">Your details</h2>
