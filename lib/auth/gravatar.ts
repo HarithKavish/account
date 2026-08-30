@@ -74,6 +74,18 @@ export interface GravatarIdentity {
  * The access token lives inside this function and nowhere else: it is used for
  * exactly one request and never returned, stored or logged.
  */
+/**
+ * Why a connection failed, in the server log and nowhere else.
+ *
+ * The person gets one message because the difference is not theirs to act on;
+ * whoever has to fix it needs the stage and the upstream status. Codes, tokens
+ * and the client secret are never logged — an OAuth error body carries only
+ * `error` and `error_description`, which is exactly the part worth having.
+ */
+function note(stage: string, detail: unknown): void {
+  console.error(`[gravatar] ${stage}:`, detail);
+}
+
 export async function completeFlow(
   code: string,
   redirectUri: string,
@@ -92,17 +104,28 @@ export async function completeFlow(
     }),
   });
 
-  if (!tokenResponse.ok) return null;
+  if (!tokenResponse.ok) {
+    const body = await tokenResponse.text().catch(() => '');
+    note('token exchange rejected', { status: tokenResponse.status, body: body.slice(0, 400) });
+    return null;
+  }
 
   const token = (await tokenResponse.json()) as { access_token?: string };
-  if (!token.access_token) return null;
+  if (!token.access_token) {
+    note('token exchange returned no access_token', { status: tokenResponse.status });
+    return null;
+  }
 
   const profileResponse = await fetch(PROFILE, {
     headers: { authorization: `Bearer ${token.access_token}`, accept: 'application/json' },
     cache: 'no-store',
   });
 
-  if (!profileResponse.ok) return null;
+  if (!profileResponse.ok) {
+    const body = await profileResponse.text().catch(() => '');
+    note('profile request rejected', { status: profileResponse.status, body: body.slice(0, 400) });
+    return null;
+  }
 
   const profile = (await profileResponse.json()) as GravatarProfile;
 
@@ -113,7 +136,12 @@ export async function completeFlow(
    * silently turn one connection into a different one.
    */
   const subject = profile.user_id != null ? String(profile.user_id) : '';
-  if (!subject) return null;
+  if (!subject) {
+    // Returned only to an authenticated request, so its absence means the token
+    // was not accepted as one — usually a scope that was not granted.
+    note('profile carried no user_id', { keys: Object.keys(profile).slice(0, 40) });
+    return null;
+  }
 
   return {
     issuer: GRAVATAR_ISSUER,
