@@ -93,13 +93,12 @@ export async function POST(request: Request) {
        */
       userVerification: 'required',
       /*
-       * Deliberately no `authenticatorAttachment`.
-       *
-       * Naming one is binding, and in Chrome it also overrides the hints below —
-       * the two steer the same wheel and the harder one wins. Hints ask; an
-       * attachment insists, and a device that cannot honour it has nothing left
-       * to offer.
+       * When the device has a platform authenticator (e.g. Android phone with screen lock,
+       * Windows Hello, Touch ID), specifying `authenticatorAttachment: 'platform'` explicitly
+       * instructs Android/Chrome Credential Manager to create the passkey on THIS device
+       * (in Google Password Manager / local enclave) rather than offering a cross-device QR code.
        */
+      ...(platformAvailable ? { authenticatorAttachment: 'platform' as const } : {}),
     },
   });
 
