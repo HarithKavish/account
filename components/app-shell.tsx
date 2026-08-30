@@ -43,7 +43,13 @@ export function AppShell({
         <footer className="site-footer">
           <div className="site-footer__inner">
             <span>{site.domain}</span>
-            <a href={site.parentUrl}>HarithKavish</a>
+            {/* Reachable from every page, which is both good manners and what a
+                provider's consent screen expects to be able to link to. */}
+            <nav className="site-footer__links" aria-label="Legal">
+              <a href="/privacy">Privacy</a>
+              <a href="/terms">Terms</a>
+              <a href={site.parentUrl}>HarithKavish</a>
+            </nav>
           </div>
         </footer>
       </div>
