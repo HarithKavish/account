@@ -17,6 +17,8 @@ import { deletePasskey } from './actions';
 export function Passkeys({ passkeys }: { passkeys: Passkey[] }) {
   const router = useRouter();
   const [supported, setSupported] = useState<boolean | null>(null);
+  /** Whether this device has a passkey manager of its own. Null until asked. */
+  const [platformAvailable, setPlatformAvailable] = useState<boolean | null>(null);
   const [adding, setAdding] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [notice, setNotice] = useState<string | null>(null);
@@ -25,9 +27,21 @@ export function Passkeys({ passkeys }: { passkeys: Passkey[] }) {
 
   useEffect(() => {
     // The server cannot know, and a button that cannot work should not be shown.
-    setSupported(
-      typeof window !== 'undefined' && typeof window.PublicKeyCredential !== 'undefined',
-    );
+    const has = typeof window !== 'undefined' && typeof window.PublicKeyCredential !== 'undefined';
+    setSupported(has);
+    if (!has) return;
+
+    /*
+     * Asked on load, and shown on the page.
+     *
+     * This single fact decides which prompt a browser puts up, and while it was
+     * invisible the only way to learn it was to ask someone to describe a dialog
+     * they were looking at. A device that answers no here is precisely why a
+     * browser offers a security key and another device instead of itself.
+     */
+    window.PublicKeyCredential.isUserVerifyingPlatformAuthenticatorAvailable()
+      .then(setPlatformAvailable)
+      .catch(() => setPlatformAvailable(null));
   }, []);
 
   async function add() {
@@ -37,7 +51,11 @@ export function Passkeys({ passkeys }: { passkeys: Passkey[] }) {
     setNotice(null);
 
     try {
-      const optionsResponse = await fetch('/api/auth/passkey/register/start', { method: 'POST' });
+      const optionsResponse = await fetch('/api/auth/passkey/register/start', {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({ platformAvailable: platformAvailable !== false }),
+      });
       if (!optionsResponse.ok) throw new Error('start_failed');
 
       const options = await optionsResponse.json();
@@ -127,6 +145,14 @@ export function Passkeys({ passkeys }: { passkeys: Passkey[] }) {
           </button>
         </div>
       )}
+
+      {/* What the device reported about itself, and what to do about it. */}
+      {supported && platformAvailable === false ? (
+        <p className="form-note">
+          This device has no passkey manager of its own, so you will be offered a security key or
+          another device instead. On Android, saving a passkey here needs a screen lock (PIN, pattern, or biometric) and a Google account signed in on the device.
+        </p>
+      ) : null}
 
       {error ? (
         <p className="form-error" role="alert">
