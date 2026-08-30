@@ -3,6 +3,7 @@
 import { useActionState, useState } from 'react';
 
 import { Field } from '@/components/form';
+import { PasskeyButton } from './passkey-button';
 import { signInWithPassword, type LoginState } from './actions';
 
 const initial: LoginState = { error: null };
@@ -86,16 +87,17 @@ export function LoginForm({
         <a href={createAccountUrl}>Create account</a>
       </p>
 
-      {googleAvailable ? (
-        <>
-          <div className="login-divider" role="separator">
-            <span>or</span>
-          </div>
+      <div className="login-divider" role="separator">
+        <span>or</span>
+      </div>
 
-          <a className="button button--secondary" href={withNext('/api/auth/google/start')}>
-            Sign in with Google
-          </a>
-        </>
+      {/* Nothing typed first: the browser offers whatever passkeys it holds. */}
+      <PasskeyButton next={next} />
+
+      {googleAvailable ? (
+        <a className="button button--secondary" href={withNext('/api/auth/google/start')}>
+          Sign in with Google
+        </a>
       ) : null}
     </div>
   );

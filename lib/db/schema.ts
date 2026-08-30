@@ -1,5 +1,7 @@
 import {
+  boolean,
   index,
+  integer,
   jsonb,
   pgEnum,
   pgTable,
@@ -330,6 +332,71 @@ export const sessions = pgTable(
  * and establishes its own session. The ticket is worthless without being spent,
  * is bound to the host allowed to spend it, and lives for a minute.
  */
+/**
+ * A passkey — a WebAuthn credential belonging to an account.
+ *
+ * A way of proving an account, exactly like a provider link, and held the same
+ * way: many per account, each independent, none of them the account itself.
+ *
+ * Everything stored here is public by construction. The private key never leaves
+ * the authenticator, and no biometric ever leaves the device — the authenticator
+ * verifies the person and attests to it, and what arrives here is a signature and
+ * a public key. There is nothing in this table worth stealing.
+ */
+export const webauthnCredentials = pgTable(
+  'webauthn_credentials',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+
+    userId: uuid('user_id')
+      .notNull()
+      .references(() => users.id, { onDelete: 'cascade' }),
+
+    /** The credential's own id, base64url. Unique across every account. */
+    credentialId: text('credential_id').notNull(),
+
+    /** The COSE public key, base64url. Public by definition. */
+    publicKey: text('public_key').notNull(),
+
+    /**
+     * The authenticator's signature counter.
+     *
+     * Raised on every assertion that reports one. A counter that goes backwards
+     * suggests a cloned authenticator, which is the only thing this number is
+     * for. Many modern passkeys report zero always, so it is recorded rather
+     * than relied upon.
+     */
+    counter: integer('counter').notNull().default(0),
+
+    /** How the authenticator can be reached: usb, nfc, ble, internal, hybrid. */
+    transports: text('transports'),
+
+    /** `singleDevice` or `multiDevice`, as the authenticator reported it. */
+    deviceType: text('device_type'),
+
+    /** Whether the credential is backed up — a synced passkey, typically. */
+    backedUp: boolean('backed_up').notNull().default(false),
+
+    /**
+     * What the person calls it.
+     *
+     * WebAuthn does not say what device made a credential, so this is theirs to
+     * set. A neutral default is used rather than a guess: a name invented from
+     * a user-agent string is wrong often enough to be worse than none.
+     */
+    displayName: text('display_name').notNull(),
+
+    createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+    lastUsedAt: timestamp('last_used_at', { withTimezone: true }),
+  },
+  (table) => [
+    uniqueIndex('webauthn_credentials_credential_id_unique').on(table.credentialId),
+    index('webauthn_credentials_user_id_idx').on(table.userId),
+  ],
+);
+
+export type WebauthnCredentialRow = typeof webauthnCredentials.$inferSelect;
+
 export const sessionTickets = pgTable(
   'session_tickets',
   {
