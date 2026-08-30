@@ -36,19 +36,18 @@ export async function POST(request: Request) {
   /*
    * Which kind of authenticator to ask for.
    *
-   * Left unsaid, a browser shows its generic chooser — and on Android that
-   * chooser offers a USB key and another device while omitting the phone's own
-   * passkey manager, which is the one thing someone holding the phone actually
-   * wants. Naming `platform` asks this device for a passkey of its own.
+   * By default we steer towards `client-device` (platform passkey manager on the phone/laptop).
+   * If the client explicitly detects and reports that no platform authenticator is available,
+   * we hint towards hybrid / security-key.
    */
-  let attachment: 'platform' | 'cross-platform' | undefined;
+  let platformAvailable = true;
   try {
-    const body = (await request.json()) as { attachment?: string };
-    if (body.attachment === 'platform' || body.attachment === 'cross-platform') {
-      attachment = body.attachment;
+    const body = (await request.json()) as { platformAvailable?: boolean };
+    if (typeof body.platformAvailable === 'boolean') {
+      platformAvailable = body.platformAvailable;
     }
   } catch {
-    // No body is a valid request: let the browser offer everything it has.
+    // No body or invalid JSON: default to client-device
   }
 
   const options = await generateRegistrationOptions({
@@ -93,9 +92,33 @@ export async function POST(request: Request) {
        * decline to store one that does not ask for verification.
        */
       userVerification: 'required',
-      ...(attachment ? { authenticatorAttachment: attachment } : {}),
+      /*
+       * Deliberately no `authenticatorAttachment`.
+       *
+       * Naming one is binding, and in Chrome it also overrides the hints below —
+       * the two steer the same wheel and the harder one wins. Hints ask; an
+       * attachment insists, and a device that cannot honour it has nothing left
+       * to offer.
+       */
     },
   });
+
+  /*
+   * Which authenticator to put in front of the person.
+   *
+   * `hints` is guidance rather than a constraint: it reorders what a browser
+   * offers without removing anything. `client-device` puts this phone's or
+   * laptop's own passkey manager first, which is what someone holding the device
+   * means by "add a passkey" — without it Chrome shows a generic chooser that,
+   * on Android, tends to lead with a security key and another device.
+   *
+   * When the device says it has no manager of its own, guidance toward one would
+   * be a lie, so it is steered to the paths that remain.
+   */
+  const withHints: typeof options = {
+    ...options,
+    hints: platformAvailable ? ['client-device'] : ['hybrid', 'security-key'],
+  };
 
   await rememberChallenge({
     challenge: options.challenge,
@@ -103,5 +126,5 @@ export async function POST(request: Request) {
     userId: session.userId,
   });
 
-  return NextResponse.json(options, { headers: { 'cache-control': 'no-store' } });
+  return NextResponse.json(withHints, { headers: { 'cache-control': 'no-store' } });
 }
