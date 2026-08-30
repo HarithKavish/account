@@ -108,28 +108,12 @@ export async function POST(request: Request) {
     },
   });
 
-  /*
-   * Which authenticator to put in front of the person.
-   *
-   * `hints` is guidance rather than a constraint: it reorders what a browser
-   * offers without removing anything. `client-device` puts this phone's or
-   * laptop's own passkey manager first, which is what someone holding the device
-   * means by "add a passkey" — without it Chrome shows a generic chooser that,
-   * on Android, tends to lead with a security key and another device.
-   *
-   * When the device says it has no manager of its own, guidance toward one would
-   * be a lie, so it is steered to the paths that remain.
-   */
-  const withHints: typeof options = {
-    ...options,
-    hints: platformAvailable ? ['client-device'] : ['hybrid', 'security-key'],
-  };
-
   await rememberChallenge({
     challenge: options.challenge,
     ceremony: 'register',
     userId: session.userId,
   });
 
-  return NextResponse.json(withHints, { headers: { 'cache-control': 'no-store' } });
+  // Return clean, standard WebAuthn Level 2 options directly (no conflicting hints)
+  return NextResponse.json(options, { headers: { 'cache-control': 'no-store' } });
 }
