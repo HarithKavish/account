@@ -34,6 +34,12 @@ export default function PrivacyPage() {
           chose one. An account created through a provider has no user ID unless you pick one.
         </li>
         <li>
+          <strong>Your email address</strong>, and whether anyone has confirmed it. It is asked for
+          when you create an account and asserted by a provider when you connect one. See{' '}
+          <em>How your address is used</em> below — an address nobody has confirmed is never used
+          to find your account.
+        </li>
+        <li>
           <strong>A password hash</strong>, if you set a password — Argon2id, never the password
           itself. An account that signs in only through a provider stores no password at all.
         </li>
@@ -120,8 +126,27 @@ export default function PrivacyPage() {
           would otherwise never expire.
         </li>
         <li>Advertising or analytics identifiers. There are no third-party trackers on this site.</li>
-        <li>An email address for password-based accounts. None is asked for.</li>
+        <li>Any message sent to your address. Nothing is sent to it at all.</li>
       </ul>
+
+      <h2>How your address is used</h2>
+      <p>
+        Your address is how this service recognises that the person signing in with a connected
+        provider is someone it already knows — rather than creating a second account beside the one
+        you already have.
+      </p>
+      <p>
+        <strong>Only a confirmed address is ever used for that.</strong> An address you typed is not
+        confirmed: typing one proves only that it was typed. It becomes confirmed when a provider
+        asserts the same address for an account you are already signed in to, which is what
+        connecting a provider does.
+      </p>
+      <p>
+        The distinction is the whole point. If an unconfirmed address could be matched, anyone could
+        type someone else&rsquo;s when creating an account, wait, and collect that person&rsquo;s
+        next sign-in through a provider. So an unconfirmed address is stored, shown to you, and used
+        for nothing else.
+      </p>
 
       <h2>Cookies</h2>
       <p>Only cookies the service cannot work without:</p>

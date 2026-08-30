@@ -31,6 +31,7 @@ export async function createAccountAction(formData: FormData): Promise<SignupSta
   const result = await createAccount({
     firstName: value('firstName'),
     lastName: value('lastName'),
+    email: value('email'),
     userId: value('userId'),
     password: value('password'),
     confirmPassword: value('confirmPassword'),

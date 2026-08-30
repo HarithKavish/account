@@ -16,6 +16,10 @@ export interface AccountProfile {
    * (§6.4) — it is not generated on their behalf.
    */
   userId: string | null;
+  /** Lowercased. May be present and unproved — see `emailVerified`. */
+  email: string | null;
+  /** Whether a provider has asserted this address for an account its owner held. */
+  emailVerified: boolean;
   firstName: string;
   lastName: string;
   status: 'active' | 'deletion_requested' | 'deleted';
@@ -46,6 +50,7 @@ export type Result<T> = { ok: true; data: T } | { ok: false; error: AccountError
 export interface CreateAccountInput {
   firstName: string;
   lastName: string;
+  email: string;
   userId: string;
   password: string;
   confirmPassword: string;

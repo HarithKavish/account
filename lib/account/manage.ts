@@ -4,11 +4,14 @@ import { eq } from 'drizzle-orm';
 
 import { getDb, schema } from '@/lib/db/client';
 import { hashPassword, verifyPassword } from './password';
+import { isUserIdAvailable } from './service';
 import {
   PASSWORD_MAX,
   PASSWORD_MIN,
   hasErrors,
   normalizeName,
+  normalizeUserId,
+  validateUserId,
   toValidationError,
   validateProfile,
 } from './validation';
@@ -27,6 +30,8 @@ function toProfile(row: schema.UserRow): AccountProfile {
   return {
     id: row.id,
     userId: row.userId,
+    email: row.email,
+    emailVerified: row.emailVerifiedAt !== null,
     firstName: row.firstName,
     lastName: row.lastName,
     status: row.status,
@@ -79,6 +84,71 @@ export async function updateName(
   await db.insert(schema.accountEvents).values({ userId, type: 'profile_updated' });
 
   return { ok: true, data: toProfile(row) };
+}
+
+/**
+ * Choose a user ID, once.
+ *
+ * Only for an account that has none — someone who arrived through a provider and
+ * never needed one (§6.4). It is not a rename: the ID is what other people may
+ * have learned to call this account, and letting it move would let someone
+ * release a name and take it back with a different account behind it.
+ */
+export async function chooseUserId(
+  userId: string,
+  rawChoice: string,
+): Promise<Result<AccountProfile>> {
+  const choice = normalizeUserId(rawChoice);
+
+  const invalid = validateUserId(choice);
+  if (invalid) {
+    return { ok: false, error: { code: 'validation_failed', message: invalid, field: 'userId' } };
+  }
+
+  const db = getDb();
+  const rows = await db.select().from(schema.users).where(eq(schema.users.id, userId)).limit(1);
+  const user = rows[0];
+
+  if (!user || user.status === 'deleted') {
+    return { ok: false, error: { code: 'account_unavailable', message: 'Account not found.' } };
+  }
+
+  if (user.userId) {
+    return {
+      ok: false,
+      error: {
+        code: 'validation_failed',
+        message: 'This account already has a user ID.',
+        field: 'userId',
+      },
+    };
+  }
+
+  if (!(await isUserIdAvailable(choice))) {
+    return {
+      ok: false,
+      error: { code: 'user_id_taken', message: 'That user ID is taken.', field: 'userId' },
+    };
+  }
+
+  try {
+    const updated = await db
+      .update(schema.users)
+      .set({ userId: choice, updatedAt: new Date() })
+      .where(eq(schema.users.id, userId))
+      .returning();
+
+    await db.insert(schema.accountEvents).values({ userId, type: 'profile_updated' });
+
+    return { ok: true, data: toProfile(updated[0]) };
+  } catch {
+    // Someone took it between the check and the write. The unique index is what
+    // actually guarantees this, and it just did.
+    return {
+      ok: false,
+      error: { code: 'user_id_taken', message: 'That user ID is taken.', field: 'userId' },
+    };
+  }
 }
 
 /**

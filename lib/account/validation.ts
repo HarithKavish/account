@@ -14,6 +14,17 @@ export const USER_ID_MAX = 64;
 export const PASSWORD_MIN = 10;
 export const PASSWORD_MAX = 128;
 export const NAME_MAX = 60;
+export const EMAIL_MAX = 254;
+
+/**
+ * Deliberately permissive.
+ *
+ * Something before an @, something after it, a dot in the domain, no spaces.
+ * Tighter patterns reject addresses that genuinely work, and a pattern cannot
+ * establish that an address exists anyway — only delivery can, and this service
+ * sends nothing. So this catches typing mistakes and nothing more.
+ */
+const EMAIL_PATTERN = /^[^\s@]+@[^\s@.]+\.[^\s@]+$/;
 
 /**
  * Letters, digits, and . _ - + @ — which permits email-style identities as well
@@ -24,6 +35,18 @@ const USER_ID_PATTERN = /^[a-z0-9][a-z0-9._+@-]*$/;
 
 export type FieldErrors = Record<string, string>;
 
+/** Addresses are stored and compared in a single canonical casing. */
+export function normalizeEmail(raw: string): string {
+  return raw.trim().toLowerCase();
+}
+
+export function validateEmail(email: string): string | null {
+  if (!email) return 'Enter your email address.';
+  if (email.length > EMAIL_MAX) return `Use at most ${EMAIL_MAX} characters.`;
+  if (!EMAIL_PATTERN.test(email)) return 'Enter a valid email address.';
+  return null;
+}
+
 /** User IDs are stored and compared in a single canonical casing. */
 export function normalizeUserId(raw: string): string {
   return raw.trim().toLowerCase();
@@ -33,7 +56,7 @@ export function normalizeName(raw: string): string {
   return raw.trim().replace(/\s+/g, ' ');
 }
 
-function validateUserId(raw: string): string | null {
+export function validateUserId(raw: string): string | null {
   const value = normalizeUserId(raw);
   if (!value) return 'Enter a user ID.';
   if (value.length < USER_ID_MIN) return `Use at least ${USER_ID_MIN} characters.`;
@@ -66,6 +89,9 @@ export function validateCreateAccount(input: CreateAccountInput): FieldErrors {
 
   const lastName = validateName(input.lastName, 'last name');
   if (lastName) errors.lastName = lastName;
+
+  const email = validateEmail(normalizeEmail(input.email ?? ''));
+  if (email) errors.email = email;
 
   const userId = validateUserId(input.userId);
   if (userId) errors.userId = userId;

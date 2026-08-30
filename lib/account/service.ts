@@ -7,6 +7,7 @@ import { checkSignupRateLimit } from './rate-limit';
 import type { AccountProfile, CreateAccountInput, Result } from './types';
 import {
   hasErrors,
+  normalizeEmail,
   normalizeName,
   normalizeUserId,
   toValidationError,
@@ -22,6 +23,8 @@ function toProfile(row: typeof schema.users.$inferSelect): AccountProfile {
   return {
     id: row.id,
     userId: row.userId ?? null,
+    email: row.email,
+    emailVerified: row.emailVerifiedAt !== null,
     firstName: row.firstName,
     lastName: row.lastName,
     status: row.status,
@@ -96,6 +99,7 @@ export async function createAccount(input: CreateAccountInput): Promise<Result<A
     };
   }
 
+  const email = normalizeEmail(input.email);
   const userId = normalizeUserId(input.userId);
   const firstName = normalizeName(input.firstName);
   const lastName = normalizeName(input.lastName);
@@ -117,7 +121,15 @@ export async function createAccount(input: CreateAccountInput): Promise<Result<A
     const created = await db.transaction(async (tx) => {
       const [row] = await tx
         .insert(schema.users)
-        .values({ userId, passwordHash, firstName, lastName })
+        /*
+         * Stored, and deliberately not marked verified.
+         *
+         * Nothing here has proved this address — no message is sent, and typing
+         * it proves only that it was typed. It stays unproved until a provider
+         * asserts it for this account, which is what makes it safe for the
+         * address to be matched on at all.
+         */
+        .values({ userId, passwordHash, firstName, lastName, email })
         .returning();
 
       await tx.insert(schema.accountEvents).values({

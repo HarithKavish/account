@@ -2,7 +2,7 @@ import 'server-only';
 
 import { randomBytes } from 'node:crypto';
 
-import { and, eq, isNull } from 'drizzle-orm';
+import { and, eq, isNotNull, isNull, ne } from 'drizzle-orm';
 
 import { getDb, schema } from '@/lib/db/client';
 import { generateRecoveryCodes, normalizeRecoveryCode, recoveryCodeMatches } from './recovery';
@@ -40,6 +40,8 @@ function toProfile(row: typeof schema.users.$inferSelect): AccountProfile {
   return {
     id: row.id,
     userId: row.userId ?? null,
+    email: row.email,
+    emailVerified: row.emailVerifiedAt !== null,
     firstName: row.firstName,
     lastName: row.lastName,
     status: row.status,
@@ -112,9 +114,57 @@ export async function resolveFederatedIdentity(
       return { ok: true, data: { profile: toProfile(user), created: false } };
     }
 
-    // New subject: a person the ecosystem has not met. Create the account and
-    // the link together — the account is what the identity *is* (V24), and the
-    // link is only how they reached it.
+    /*
+     * A subject we have not seen, but perhaps a person we have.
+     *
+     * A provider that asserts `email_verified` has proved control of that
+     * address. If an account already holds the same address *and has itself been
+     * proved*, this is the same person arriving a different way, so the provider
+     * is linked to the account they already have rather than a second one being
+     * created beside it.
+     *
+     * Both halves must be proved. Matching an unproved address would let anyone
+     * type someone else's at sign-up, wait, and collect their next federated
+     * sign-in — which is why a typed address is never proof (V27).
+     */
+    if (identity.emailVerified && identity.email) {
+      const address = identity.email.trim().toLowerCase();
+
+      const claimed = await db
+        .select()
+        .from(schema.users)
+        .where(
+          and(
+            eq(schema.users.email, address),
+            isNotNull(schema.users.emailVerifiedAt),
+            ne(schema.users.status, 'deleted'),
+          ),
+        )
+        .limit(1);
+
+      const owner = claimed[0];
+      if (owner) {
+        await db.insert(schema.userIdentities).values({
+          userId: owner.id,
+          issuer: identity.issuer,
+          subject: identity.subject,
+          emailAtLink: address,
+          pictureUrl: identity.picture,
+          lastAuthenticatedAt: new Date(),
+        });
+
+        await db.insert(schema.accountEvents).values({
+          userId: owner.id,
+          type: 'identity_linked',
+          metadata: { issuer: identity.issuer, matchedOn: 'verified_email' },
+        });
+
+        return { ok: true, data: { profile: toProfile(owner), created: false } };
+      }
+    }
+
+    // Nobody we know. Create the account and the link together — the account is
+    // what the identity *is* (V24), and the link is only how they reached it.
     const { first, last } = splitName(identity.name, identity.email);
 
     const inserted = await db
@@ -124,6 +174,19 @@ export async function resolveFederatedIdentity(
         // public identifier (§6.4). Nothing is invented on their behalf.
         firstName: first,
         lastName: last,
+        /*
+         * The provider proved this address, so it is stored as proved. That is
+         * what lets the same person be recognised later when they arrive through
+         * a different provider.
+         */
+        email: identity.emailVerified && identity.email ? identity.email.trim().toLowerCase() : null,
+        emailVerifiedAt: identity.emailVerified && identity.email ? new Date() : null,
+        /*
+         * An account born from a provider shows that provider's picture. It is
+         * the only one it has, and a placeholder would be a worse likeness of
+         * someone who already has one.
+         */
+        pictureSource: identity.picture ? 'google' : 'none',
       })
       .returning();
 
