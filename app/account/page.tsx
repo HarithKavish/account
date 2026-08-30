@@ -5,6 +5,8 @@ import { Avatar } from '@/components/avatar';
 import { AppShell } from '@/components/app-shell';
 import { AccountLayout } from '@/components/account-layout';
 import { SignInUnavailable } from '@/components/sign-in-unavailable';
+import { LockoutWarning } from '@/components/lockout-warning';
+import { hasPassword } from '@/lib/account/manage';
 import { resolvePicture } from '@/lib/account/connections';
 import { requireAccount } from '@/lib/auth/require';
 
@@ -26,11 +28,16 @@ export default async function AccountOverviewPage() {
   }
 
   const name = `${account.firstName} ${account.lastName}`.trim();
-  const picture = await resolvePicture(account.id);
+  const [picture, withPassword] = await Promise.all([
+    resolvePicture(account.id),
+    hasPassword(account.id),
+  ]);
 
   return (
     <AppShell>
       <AccountLayout title="Overview">
+        <LockoutWarning needsUserId={!account.userId} needsPassword={!withPassword} />
+
         <section className="group">
           <h2 className="group__title">Signed in</h2>
           <div className="identity">

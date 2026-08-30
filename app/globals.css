@@ -748,6 +748,33 @@ code {
     font-size: 0.92em;
 }
 
+/* Something the account needs, stated where it will be seen rather than in a
+   dialog that gets dismissed on the way to something else. */
+.notice {
+    margin: 0 0 1.4rem;
+    padding: 0.95rem 1.1rem;
+    border: 1px solid var(--status-progress-border);
+    border-radius: var(--radius-inner);
+    background: var(--status-progress-bg);
+}
+
+.notice__title {
+    margin: 0 0 0.35rem;
+    font-size: 0.95rem;
+    font-weight: 650;
+}
+
+.notice__body {
+    margin: 0;
+    color: var(--muted);
+    font-size: 0.88rem;
+    line-height: 1.55;
+}
+
+.notice__actions {
+    margin: 0.85rem 0 0;
+}
+
 .identity {
     display: flex;
     align-items: center;

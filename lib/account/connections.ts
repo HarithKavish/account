@@ -71,6 +71,46 @@ export async function listConnections(userId: string): Promise<Connection[]> {
   });
 }
 
+/**
+ * Record that a provider proved this account's address.
+ *
+ * The other half of verified-only matching. An address typed at sign-up is not
+ * proof of anything; it becomes proof when a provider asserts it for an account
+ * whose owner is already signed in — which is exactly what connecting one is.
+ *
+ * An address the account does not claim is left alone: what the provider
+ * asserted is kept beside the link, and the account's own address is the
+ * account's to state. A promotion that collides with another account's proved
+ * address simply does not happen — the link still succeeds, because a way in is
+ * not contingent on who owns an address.
+ */
+async function proveEmail(userId: string, identity: VerifiedProviderIdentity): Promise<void> {
+  if (!identity.emailVerified || !identity.email) return;
+
+  const address = identity.email.trim().toLowerCase();
+  const db = getDb();
+
+  try {
+    const rows = await db
+      .select({ email: schema.users.email, verifiedAt: schema.users.emailVerifiedAt })
+      .from(schema.users)
+      .where(eq(schema.users.id, userId))
+      .limit(1);
+
+    const current = rows[0];
+    if (!current) return;
+    if (current.verifiedAt) return;
+    if (current.email && current.email !== address) return;
+
+    await db
+      .update(schema.users)
+      .set({ email: address, emailVerifiedAt: new Date(), updatedAt: new Date() })
+      .where(eq(schema.users.id, userId));
+  } catch {
+    // Another account already proved this address. The connection stands.
+  }
+}
+
 export type LinkOutcome = 'linked' | 'already_linked_here';
 
 /**
@@ -139,6 +179,7 @@ export async function linkIdentity(
         })
         .where(eq(schema.userIdentities.id, mine[0].id));
 
+      await proveEmail(userId, identity);
       return { ok: true, data: 'already_linked_here' };
     }
 
@@ -156,6 +197,8 @@ export async function linkIdentity(
       type: 'identity_linked',
       metadata: { issuer: identity.issuer },
     });
+
+    await proveEmail(userId, identity);
 
     return { ok: true, data: 'linked' };
   } catch {

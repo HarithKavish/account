@@ -8,6 +8,7 @@ import {
   uniqueIndex,
   uuid,
 } from 'drizzle-orm/pg-core';
+import { sql } from 'drizzle-orm';
 
 /**
  * HarithKavish Account — database schema.
@@ -64,6 +65,25 @@ export const users = pgTable(
     userId: text('user_id'),
 
     /**
+     * The account's email address, lowercased.
+     *
+     * Asked for at sign-up and asserted by a provider, so an account may hold one
+     * neither party has proved. `emailVerifiedAt` is what separates the two, and
+     * it is the only one of them that may be matched on.
+     */
+    email: text('email'),
+
+    /**
+     * When someone proved this address, or NULL.
+     *
+     * Proof means a provider asserted it with `email_verified` for an account its
+     * owner already controlled. A typed address is never proof of anything: if an
+     * unproved address could match, anyone could type someone else's, wait, and
+     * collect their next federated sign-in.
+     */
+    emailVerifiedAt: timestamp('email_verified_at', { withTimezone: true }),
+
+    /**
      * Argon2id encoded hash. Never returned to a client, never logged.
      *
      * NULL means this account has no password (§6.4). Deliberately NULL rather
@@ -100,6 +120,16 @@ export const users = pgTable(
     // friendly message, but this constraint is what actually guarantees it
     // under concurrent signups.
     uniqueIndex('users_user_id_unique').on(table.userId),
+    /*
+     * Unique among *proved* addresses only.
+     *
+     * Two accounts may hold the same unproved address — one of them typed it and
+     * may simply be wrong — and refusing the second would let anyone reserve an
+     * address they do not own. Once proved, it identifies exactly one account.
+     */
+    uniqueIndex('users_email_verified_unique')
+      .on(table.email)
+      .where(sql`${table.emailVerifiedAt} is not null`),
     index('users_status_idx').on(table.status),
   ],
 );

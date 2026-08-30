@@ -2,12 +2,34 @@
 
 import { revalidatePath } from 'next/cache';
 
-import { changePassword } from '@/lib/account/manage';
+import { changePassword, chooseUserId } from '@/lib/account/manage';
 import { issueRecoveryCodes } from '@/lib/account/identity';
 import { requireAccount } from '@/lib/auth/require';
 import { destroyAllSessions } from '@/lib/auth/session';
 import { stashRecoveryCodes } from '@/lib/auth/recovery-handoff';
 import { redirect } from 'next/navigation';
+
+export interface UserIdState {
+  error: string | null;
+  saved: boolean;
+}
+
+/** Claim a user ID, for an account created through a provider without one. */
+export async function saveUserId(
+  _previous: UserIdState,
+  formData: FormData,
+): Promise<UserIdState> {
+  const account = await requireAccount();
+  if (!account) return { error: 'You are not signed in.', saved: false };
+
+  const result = await chooseUserId(account.id, String(formData.get('userId') ?? ''));
+  if (!result.ok) return { error: result.error.message, saved: false };
+
+  revalidatePath('/security');
+  revalidatePath('/settings');
+  revalidatePath('/account');
+  return { error: null, saved: true };
+}
 
 export interface PasswordState {
   error: string | null;

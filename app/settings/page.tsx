@@ -104,6 +104,18 @@ export default async function ProfilePage() {
               <span className="row__trailing" />
             </div>
             <div className="row">
+              <span className="row__label">Email</span>
+              <span className="row__value">
+                {account.email ?? <span className="row__empty">Not set</span>}
+                <span className="row__note">
+                  {account.emailVerified
+                    ? 'Confirmed by a connected service. Used to recognise you when you sign in another way.'
+                    : 'Not yet confirmed. It will be once a connected service confirms it, and only then is it used to recognise you.'}
+                </span>
+              </span>
+              <span className="row__trailing" />
+            </div>
+            <div className="row">
               <span className="row__label">Created</span>
               <span className="row__value">{created}</span>
               <span className="row__trailing" />

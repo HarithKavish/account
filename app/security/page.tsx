@@ -9,7 +9,9 @@ import { hasPassword } from '@/lib/account/manage';
 import { AUTH_HOST, ACCOUNT_HOST } from '@/lib/auth/hosts';
 import { hasGoogleEnv, hasGravatarEnv } from '@/lib/env';
 import { requireAccount } from '@/lib/auth/require';
+import { LockoutWarning } from '@/components/lockout-warning';
 import { PasswordForm } from './password-form';
+import { UserIdForm } from './user-id-form';
 import { regenerateRecoveryCodes, signOutEverywhere } from './actions';
 
 export const metadata: Metadata = { title: 'Security' };
@@ -61,6 +63,19 @@ export default async function SecurityPage({
   return (
     <AppShell>
       <AccountLayout title="Security">
+        <LockoutWarning needsUserId={!account.userId} needsPassword={!withPassword} />
+
+        {account.userId ? null : (
+          <section className="group">
+            <h2 className="group__title">Choose a user ID</h2>
+            <p className="group__lead">
+              This account was created through a connected service, so it never needed one. Choosing
+              a user ID gives you something to sign in with here.
+            </p>
+            <UserIdForm />
+          </section>
+        )}
+
         <section className="group">
           <h2 className="group__title">{withPassword ? 'Password' : 'Add a password'}</h2>
           {withPassword ? null : (
