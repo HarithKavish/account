@@ -51,10 +51,20 @@ export function Passkeys({ passkeys }: { passkeys: Passkey[] }) {
     setNotice(null);
 
     try {
+      let isPlatform = platformAvailable;
+      if (isPlatform === null && typeof window !== 'undefined' && window.PublicKeyCredential) {
+        try {
+          isPlatform = await window.PublicKeyCredential.isUserVerifyingPlatformAuthenticatorAvailable();
+          setPlatformAvailable(isPlatform);
+        } catch {
+          isPlatform = null;
+        }
+      }
+
       const optionsResponse = await fetch('/api/auth/passkey/register/start', {
         method: 'POST',
         headers: { 'content-type': 'application/json' },
-        body: JSON.stringify({ platformAvailable: platformAvailable !== false }),
+        body: JSON.stringify({ platformAvailable: isPlatform !== false }),
       });
       if (!optionsResponse.ok) throw new Error('start_failed');
 
