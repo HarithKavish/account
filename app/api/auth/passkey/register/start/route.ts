@@ -87,11 +87,11 @@ export async function POST(request: Request) {
        */
       residentKey: 'required',
       /*
-       * Required, not preferred. A passkey is a verified credential by
-       * definition, and platform managers — Google Password Manager among them —
-       * decline to store one that does not ask for verification.
+       * Preferred user verification allows Android Credential Manager, Windows Hello,
+       * and Apple Keychain to verify via biometric or device PIN/pattern without throwing
+       * NotReadableError if hardware biometric attestation is not strictly enforced.
        */
-      userVerification: 'required',
+      userVerification: 'preferred',
       /*
        * When the device has a platform authenticator (e.g. Android phone with screen lock,
        * Windows Hello, Touch ID), specifying `authenticatorAttachment: 'platform'` explicitly

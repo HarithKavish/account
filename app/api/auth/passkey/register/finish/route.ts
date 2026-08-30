@@ -42,8 +42,7 @@ export async function POST(request: Request) {
       expectedChallenge: asked.challenge,
       expectedOrigin: allowedOrigins(),
       expectedRPID: RP_ID,
-      // Registration asked for verification, so registration insists on it.
-      requireUserVerification: true,
+      requireUserVerification: false,
     });
   } catch (error) {
     // The detail belongs in the log, not in the response: what failed is useful
