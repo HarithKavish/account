@@ -104,10 +104,6 @@ export function Passkeys({ passkeys }: { passkeys: Passkey[] }) {
         );
       } else if (name === 'InvalidStateError') {
         setError('This device already has a passkey for your account.');
-      } else if (name === 'NotReadableError') {
-        setError(
-          'Your device could not complete the passkey creation. Please ensure your screen lock or fingerprint is ready and try again.',
-        );
       } else {
         console.error('[passkey] registration failed', cause);
         // The error's name is not a secret, and it is the one thing that makes a
