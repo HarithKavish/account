@@ -26,6 +26,8 @@ export interface AccountProfile {
 export type AccountErrorCode =
   | 'validation_failed'
   | 'user_id_taken'
+  /** A provider identity that already belongs to a different account. */
+  | 'identity_taken'
   | 'rate_limited'
   | 'rate_limit_unavailable'
   | 'database_unavailable'
