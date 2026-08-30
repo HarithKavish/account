@@ -65,7 +65,15 @@ function required(name: string): string {
         'hosting provider for a deployed environment.',
     );
   }
-  return value.trim();
+  /*
+   * Quotes are stripped, not just whitespace.
+   *
+   * A dashboard's copy button and a paste into a web form both like to bring
+   * quotation marks along, and a credential wrapped in them is a different
+   * string — one the provider has never heard of. The failure that produces is
+   * indistinguishable from a wrong credential, so it is worth not having.
+   */
+  return value.trim().replace(/^["'](.*)["']$/, '$1').trim();
 }
 
 /**

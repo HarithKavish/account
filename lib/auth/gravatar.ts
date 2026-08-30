@@ -106,7 +106,22 @@ export async function completeFlow(
 
   if (!tokenResponse.ok) {
     const body = await tokenResponse.text().catch(() => '');
-    note('token exchange rejected', { status: tokenResponse.status, body: body.slice(0, 400) });
+    note('token exchange rejected', {
+      status: tokenResponse.status,
+      body: body.slice(0, 400),
+      /*
+       * Enough to tell which credential is in play without printing it. A
+       * WordPress.com client id is a short run of digits; a Gravatar API key is
+       * a long alphanumeric string, and confusing the two is the likeliest
+       * reason this endpoint says it has never heard of the client.
+       */
+      clientId: {
+        length: env.clientId.length,
+        numeric: /^\d+$/.test(env.clientId),
+      },
+      secretLength: env.clientSecret.length,
+      redirectUri,
+    });
     return null;
   }
 
