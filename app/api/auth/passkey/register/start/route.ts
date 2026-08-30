@@ -15,7 +15,7 @@ export const dynamic = 'force-dynamic';
  * Registering is something an account does, so there has to be one signed in.
  * The challenge is remembered in a host-only cookie and answered once.
  */
-export async function POST() {
+export async function POST(request: Request) {
   const session = await getSessionUser();
   if (!session) {
     return NextResponse.json({ error: 'not_signed_in' }, { status: 401 });
@@ -33,10 +33,23 @@ export async function POST() {
     return NextResponse.json({ error: 'not_signed_in' }, { status: 401 });
   }
 
-  const existing = await db
-    .select({ credentialId: schema.webauthnCredentials.credentialId })
-    .from(schema.webauthnCredentials)
-    .where(eq(schema.webauthnCredentials.userId, session.userId));
+  /*
+   * Which kind of authenticator to ask for.
+   *
+   * Left unsaid, a browser shows its generic chooser — and on Android that
+   * chooser offers a USB key and another device while omitting the phone's own
+   * passkey manager, which is the one thing someone holding the phone actually
+   * wants. Naming `platform` asks this device for a passkey of its own.
+   */
+  let attachment: 'platform' | 'cross-platform' | undefined;
+  try {
+    const body = (await request.json()) as { attachment?: string };
+    if (body.attachment === 'platform' || body.attachment === 'cross-platform') {
+      attachment = body.attachment;
+    }
+  } catch {
+    // No body is a valid request: let the browser offer everything it has.
+  }
 
   const options = await generateRegistrationOptions({
     rpName: RP_NAME,
@@ -54,11 +67,19 @@ export async function POST() {
     // for attestation would collect exactly that.
     attestationType: 'none',
     /*
-     * Already-registered credentials are excluded so an authenticator offers to
-     * create a new one rather than silently replacing what it holds. Adding a
-     * second passkey must never cost someone the first.
+     * Deliberately no `excludeCredentials`.
+     *
+     * Excluding what an account already holds stops one authenticator making two
+     * credentials — reasonable in itself, but with synced passkeys an
+     * "authenticator" is a password manager spanning every device signed into
+     * it. One passkey then removes that manager as an option everywhere, which
+     * is how a phone ends up being offered a USB key and another device but not
+     * itself.
+     *
+     * The cost is that a device may hold two credentials for this account. Both
+     * work, both are listed, and either can be removed. That is a better failure
+     * than being unable to register the device in your hand.
      */
-    excludeCredentials: existing.map((row) => ({ id: row.credentialId })),
     authenticatorSelection: {
       /*
        * Discoverable, because sign-in must work without anyone typing who they
@@ -66,7 +87,13 @@ export async function POST() {
        * offered from a list we supplied, which would mean enumerating accounts.
        */
       residentKey: 'required',
-      userVerification: 'preferred',
+      /*
+       * Required, not preferred. A passkey is a verified credential by
+       * definition, and platform managers — Google Password Manager among them —
+       * decline to store one that does not ask for verification.
+       */
+      userVerification: 'required',
+      ...(attachment ? { authenticatorAttachment: attachment } : {}),
     },
   });
 

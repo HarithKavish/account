@@ -58,15 +58,33 @@ export function Passkeys({ passkeys }: { passkeys: Passkey[] }) {
         router.refresh();
       }
     } catch (cause) {
-      // Changing your mind is not an error worth reporting as one.
-      const aborted =
-        cause instanceof WebAuthnError
-          ? cause.name === 'NotAllowedError' || cause.code === 'ERROR_CEREMONY_ABORTED'
-          : cause instanceof Error && cause.name === 'NotAllowedError';
+      const name = cause instanceof Error ? cause.name : '';
+      const code = cause instanceof WebAuthnError ? cause.code : '';
 
-      if (!aborted) {
+      /*
+       * `NotAllowedError` covers three different things: cancelling, timing out,
+       * and a device deciding it had nothing to offer. They are
+       * indistinguishable from here, so the message says what is true of all
+       * three rather than picking one and being wrong most of the time.
+       *
+       * Staying silent was worse: someone whose device simply offered nothing
+       * saw a button that appeared to do nothing at all.
+       */
+      if (name === 'NotAllowedError' || code === 'ERROR_CEREMONY_ABORTED') {
+        setError(
+          'No passkey was created. If you did not cancel, your device may not have offered one.',
+        );
+      } else if (name === 'InvalidStateError') {
+        setError('This device already has a passkey for your account.');
+      } else {
         console.error('[passkey] registration failed', cause);
-        setError('Your device could not create a passkey.');
+        // The error's name is not a secret, and it is the one thing that makes a
+        // report from a device nobody here can inspect actionable.
+        setError(
+          name
+            ? `Your device could not create a passkey (${name}).`
+            : 'Your device could not create a passkey.',
+        );
       }
     } finally {
       setAdding(false);

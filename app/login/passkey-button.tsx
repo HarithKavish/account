@@ -71,7 +71,14 @@ export function PasskeyButton({ next }: { next?: string }) {
 
       if (!aborted) {
         console.error('[passkey] sign-in failed', cause);
-        setError('Your device could not complete the passkey check.');
+        const name = cause instanceof Error ? cause.name : '';
+        // The error's name is not a secret and is the one thing that makes a
+        // report from someone else's device actionable.
+        setError(
+          name
+            ? `Your device could not complete the passkey check (${name}).`
+            : 'Your device could not complete the passkey check.',
+        );
       }
       setPending(false);
     }
