@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server';
 import { eq } from 'drizzle-orm';
 
+import { resolvePicture } from '@/lib/account/connections';
 import { getDb, schema } from '@/lib/db/client';
 import { userForToken } from '@/lib/oauth/store';
 
@@ -45,6 +46,15 @@ export async function GET(request: Request) {
       sub: user.id,
       name,
       preferred_username: user.userId ?? null,
+      /*
+       * Whatever picture the account chose, or null for the placeholder.
+       *
+       * A relying party that cannot ask for this has to invent something, and
+       * what forge invented was an empty one that it then published over the
+       * ecosystem's own — which is how changing a picture made it vanish
+       * everywhere the moment forge was opened.
+       */
+      picture: await resolvePicture(user.id),
     },
     { headers: { 'cache-control': 'no-store' } },
   );
