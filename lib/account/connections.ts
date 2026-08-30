@@ -4,6 +4,7 @@ import { and, eq, ne } from 'drizzle-orm';
 
 import { getDb, schema } from '@/lib/db/client';
 import { GOOGLE_ISSUER } from '@/lib/auth/google';
+import { GRAVATAR_ISSUER } from '@/lib/auth/gravatar';
 import type { Result, VerifiedProviderIdentity } from './types';
 
 /**
@@ -14,17 +15,29 @@ import type { Result, VerifiedProviderIdentity } from './types';
  * accounts in their own right, and the account is perfectly usable with none.
  */
 
-export type ProviderId = 'google';
+export type ProviderId = 'google' | 'gravatar';
 
 export interface Provider {
   id: ProviderId;
   label: string;
   issuer: string;
+  /**
+   * Whether this provider can also prove an identity.
+   *
+   * Google can: it signs people in and may create an account. Gravatar cannot —
+   * it is connected by someone already signed in and only lends the account a
+   * picture and a profile, so it can never become another way to end up with two
+   * accounts.
+   */
+  signsIn: boolean;
+  /** Whether it offers a profile worth keeping a snapshot of. */
+  hasProfile: boolean;
 }
 
 /** Every provider a person may connect, whether or not they have. */
 export const PROVIDERS: readonly Provider[] = [
-  { id: 'google', label: 'Google', issuer: GOOGLE_ISSUER },
+  { id: 'google', label: 'Google', issuer: GOOGLE_ISSUER, signsIn: true, hasProfile: false },
+  { id: 'gravatar', label: 'Gravatar', issuer: GRAVATAR_ISSUER, signsIn: false, hasProfile: true },
 ];
 
 export interface Connection extends Provider {
@@ -33,6 +46,8 @@ export interface Connection extends Provider {
   email: string | null;
   picture: string | null;
   linkedAt: string | null;
+  /** The snapshot taken when it was connected, for providers that offer one. */
+  profile: Record<string, unknown> | null;
 }
 
 /** Which providers this account is connected to, and which it is not. */
@@ -51,6 +66,7 @@ export async function listConnections(userId: string): Promise<Connection[]> {
       email: link?.emailAtLink ?? null,
       picture: link?.pictureUrl ?? null,
       linkedAt: link?.linkedAt.toISOString() ?? null,
+      profile: link?.profile ?? null,
     };
   });
 }
@@ -150,10 +166,102 @@ export async function linkIdentity(
   }
 }
 
-export type PictureSource = 'none' | 'google';
+/**
+ * Connect a provider that lends a profile rather than proving an identity.
+ *
+ * Same rule as `linkIdentity` on the subject already belonging to someone else,
+ * and the same refusal — but this one also carries the snapshot, and it is never
+ * reachable from a sign-in path because the provider cannot sign anyone in.
+ */
+export async function linkProfileProvider(
+  userId: string,
+  input: {
+    issuer: string;
+    subject: string;
+    pictureUrl: string | null;
+    profile: Record<string, unknown>;
+  },
+): Promise<Result<LinkOutcome>> {
+  const db = getDb();
+
+  try {
+    const claimedElsewhere = await db
+      .select({ id: schema.userIdentities.id })
+      .from(schema.userIdentities)
+      .where(
+        and(
+          eq(schema.userIdentities.issuer, input.issuer),
+          eq(schema.userIdentities.subject, input.subject),
+          ne(schema.userIdentities.userId, userId),
+        ),
+      )
+      .limit(1);
+
+    if (claimedElsewhere.length > 0) {
+      return {
+        ok: false,
+        error: {
+          code: 'identity_taken',
+          message: 'That account is already connected to a different HarithKavish account.',
+        },
+      };
+    }
+
+    const mine = await db
+      .select()
+      .from(schema.userIdentities)
+      .where(
+        and(
+          eq(schema.userIdentities.userId, userId),
+          eq(schema.userIdentities.issuer, input.issuer),
+        ),
+      )
+      .limit(1);
+
+    if (mine.length > 0) {
+      // Reconnecting is how a stale snapshot is refreshed, since the token that
+      // could have done it quietly was thrown away.
+      await db
+        .update(schema.userIdentities)
+        .set({
+          subject: input.subject,
+          pictureUrl: input.pictureUrl,
+          profile: input.profile,
+          lastAuthenticatedAt: new Date(),
+        })
+        .where(eq(schema.userIdentities.id, mine[0].id));
+
+      return { ok: true, data: 'already_linked_here' };
+    }
+
+    await db.insert(schema.userIdentities).values({
+      userId,
+      issuer: input.issuer,
+      subject: input.subject,
+      pictureUrl: input.pictureUrl,
+      profile: input.profile,
+      lastAuthenticatedAt: new Date(),
+    });
+
+    await db.insert(schema.accountEvents).values({
+      userId,
+      type: 'identity_linked',
+      metadata: { issuer: input.issuer },
+    });
+
+    return { ok: true, data: 'linked' };
+  } catch {
+    return {
+      ok: false,
+      error: { code: 'database_unavailable', message: 'Could not reach the account store.' },
+    };
+  }
+}
+
+export type PictureSource = 'none' | ProviderId;
 
 export function isPictureSource(value: string): value is PictureSource {
-  return value === 'none' || value === 'google';
+  return value === 'none' || PROVIDERS.some((provider) => provider.id === value);
 }
 
 /**

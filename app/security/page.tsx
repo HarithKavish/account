@@ -7,7 +7,7 @@ import { countUnusedRecoveryCodes } from '@/lib/account/identity';
 import { listConnections } from '@/lib/account/connections';
 import { hasPassword } from '@/lib/account/manage';
 import { AUTH_HOST, ACCOUNT_HOST } from '@/lib/auth/hosts';
-import { hasGoogleEnv } from '@/lib/env';
+import { hasGoogleEnv, hasGravatarEnv } from '@/lib/env';
 import { requireAccount } from '@/lib/auth/require';
 import { PasswordForm } from './password-form';
 import { regenerateRecoveryCodes, signOutEverywhere } from './actions';
@@ -38,7 +38,10 @@ export default async function SecurityPage({
     countUnusedRecoveryCodes(account.id),
     listConnections(account.id),
   ]);
-  const providersAvailable = hasGoogleEnv();
+  const available: Record<string, boolean> = {
+    google: hasGoogleEnv(),
+    gravatar: hasGravatarEnv(),
+  };
 
   /*
    * Connecting begins at the front door, not here.
@@ -48,12 +51,12 @@ export default async function SecurityPage({
    * trip on whichever host is showing this page — which is how this arrived as
    * `redirect_uri_mismatch`.
    */
-  const connectUrl = (() => {
-    const start = new URL('/api/auth/google/start', `https://${AUTH_HOST}`);
-    start.searchParams.set('mode', 'link');
+  const connectUrl = (provider: string) => {
+    const start = new URL(`/api/auth/${provider}/start`, `https://${AUTH_HOST}`);
+    if (provider === 'google') start.searchParams.set('mode', 'link');
     start.searchParams.set('next', `https://${ACCOUNT_HOST}/security`);
     return start.toString();
-  })();
+  };
 
   return (
     <AppShell>
@@ -112,9 +115,11 @@ export default async function SecurityPage({
                     <>
                       <span className="row__empty">Not connected</span>
                       <span className="row__note">
-                        {providersAvailable
-                          ? `Sign in with ${connection.label} as well as your password.`
-                          : `${connection.label} sign-in is not configured on this deployment.`}
+                        {!available[connection.id]
+                          ? `${connection.label} is not configured on this deployment.`
+                          : connection.signsIn
+                            ? `Sign in with ${connection.label} as well as your password.`
+                            : `Use your ${connection.label} picture and profile here. It cannot sign you in.`}
                       </span>
                     </>
                   )}
@@ -122,11 +127,8 @@ export default async function SecurityPage({
                 <span className="row__trailing">
                   {connection.connected ? (
                     <span className="pill pill--neutral">Connected</span>
-                  ) : providersAvailable ? (
-                    <a
-                      className="row__action"
-                      href={connectUrl}
-                    >
+                  ) : available[connection.id] ? (
+                    <a className="row__action" href={connectUrl(connection.id)}>
                       Connect
                     </a>
                   ) : null}

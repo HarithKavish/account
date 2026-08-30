@@ -58,7 +58,7 @@ export async function GET(request: Request) {
   }
 
   const secrets = beginFlow();
-  await setFlowCookie(secrets, next, linking ? 'link' : 'sign-in');
+  await setFlowCookie(secrets, next, linking ? 'link' : 'sign-in', 'google');
 
   return NextResponse.redirect(authorizeUrl(secrets, redirectUri()));
 }

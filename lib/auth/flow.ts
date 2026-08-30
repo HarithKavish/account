@@ -26,10 +26,14 @@ const TTL_SECONDS = 600;
  */
 export type FlowMode = 'sign-in' | 'link';
 
+/** Which provider the in-flight trip belongs to. */
+export type FlowProvider = 'google' | 'gravatar';
+
 interface FlowState extends FlowSecrets {
   /** Where to land afterwards. Validated on the way out, never trusted verbatim. */
   next: string | null;
   mode: FlowMode;
+  provider: FlowProvider;
 }
 
 /**
@@ -45,13 +49,19 @@ export function redirectUri(): string {
   return `https://${AUTH_HOST}/api/auth/google/callback`;
 }
 
+/** Registered at gravatar.com/developers. Pinned for the same reason. */
+export function gravatarRedirectUri(): string {
+  return `https://${AUTH_HOST}/api/auth/gravatar/callback`;
+}
+
 export async function setFlowCookie(
   secrets: FlowSecrets,
   next: string | null,
   mode: FlowMode = 'sign-in',
+  provider: FlowProvider = 'google',
 ): Promise<void> {
   const jar = await cookies();
-  const state: FlowState = { ...secrets, next, mode };
+  const state: FlowState = { ...secrets, next, mode, provider };
   jar.set(COOKIE, JSON.stringify(state), {
     httpOnly: true,
     secure: true,
@@ -73,7 +83,14 @@ export async function takeFlowCookie(): Promise<FlowState | null> {
     if (!parsed.state || !parsed.nonce || !parsed.codeVerifier) return null;
     // A cookie written before `mode` existed is a sign-in, which is what every
     // flow was until linking arrived.
-    return { ...parsed, mode: parsed.mode === 'link' ? 'link' : 'sign-in' };
+    return {
+      ...parsed,
+      mode: parsed.mode === 'link' ? 'link' : 'sign-in',
+      // A cookie written before this existed belongs to the only provider there
+      // was. Each callback checks the value, so a trip cannot be redeemed by the
+      // wrong one.
+      provider: parsed.provider === 'gravatar' ? 'gravatar' : 'google',
+    };
   } catch {
     return null;
   }
