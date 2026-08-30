@@ -37,15 +37,19 @@ const PROFILE = 'https://api.gravatar.com/v3/me/profile';
  * `auth` to authenticate at all, and read access to the profile. `:manage` is
  * not asked for: nothing here edits anyone's Gravatar, and a scope granted is a
  * scope that has to be justified later.
+ *
+ * Sent as an indexed array — `scope[0]=…&scope[1]=…` — because that is what
+ * this provider documents. The space-separated form the rest of the OAuth world
+ * uses is not what it reads.
  */
-const SCOPE = 'auth gravatar-profile:read';
+const SCOPES = ['auth', 'gravatar-profile:read'];
 
 export function authorizeUrl(secrets: FlowSecrets, redirectUri: string): string {
   const url = new URL(AUTHORIZE);
   url.searchParams.set('client_id', readGravatarEnv().clientId);
   url.searchParams.set('redirect_uri', redirectUri);
   url.searchParams.set('response_type', 'code');
-  url.searchParams.set('scope', SCOPE);
+  SCOPES.forEach((scope, index) => url.searchParams.set(`scope[${index}]`, scope));
   url.searchParams.set('state', secrets.state);
   return url.toString();
 }
