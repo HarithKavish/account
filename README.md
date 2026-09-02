@@ -17,6 +17,7 @@ The account lifecycle system for the HarithKavish ecosystem.
 - [Architecture](#architecture)
 - [Data model](#data-model)
 - [Account creation](#account-creation)
+- [The operator console API](#the-operator-console-api)
 - [Security](#security)
 - [Rate limiting](#rate-limiting)
 - [Technology stack](#technology-stack)
@@ -308,6 +309,83 @@ User IDs are normalised to lowercase, so uniqueness is case-insensitive.
 Email addresses are valid user IDs.
 
 ---
+
+---
+
+## The operator console API
+
+`admin.harithkavish.com` ([HarithKavish/admin](https://github.com/HarithKavish/admin))
+is a static page on GitHub Pages that shows every account holder in the
+ecosystem. It holds no session and can hold none — the adopt allow-list in
+`lib/auth/hosts.ts` exists to keep the Pages sites off `__Host-hk_session` — so
+it reads two routes here from the browser, carrying the visitor's own session
+cookie.
+
+| Route | Answers |
+| --- | --- |
+| `GET /api/admin/session` | `200` owner · `403` signed in, not the owner · `401` no session |
+| `GET /api/admin/accounts` | The account table, to the owner only |
+
+Both are `GET`. Nothing under `/api/admin` writes, which is why a same-site
+request arriving without a CSRF token is harmless: there is no state for it to
+change. **Adding a write to this API means adding a token check with it.**
+
+### Who may read it
+
+`lib/admin/owner.ts` holds a constant list of addresses — not an environment
+variable and not a table, for the reason `lib/oauth/clients.ts` gives for its
+client list: a registry that can be edited at runtime is a way to grant access
+without review, and what this grants is a view of every account in the
+ecosystem. Adding a reader is a deploy.
+
+Two conditions, both required:
+
+- the account's address is on the list, **and**
+- `email_verified_at` is not null.
+
+The second is not a formality. An unproved address is text somebody typed at
+sign-up (V27), so matching on one would let anyone reach this console by typing
+the owner's address into a new account.
+
+Authority comes from the `__Host-` session and the account row behind it, and
+from nothing else. It never comes from `hk.user`: that cookie is scoped to
+`.harithkavish.com`, so every subdomain can write it — the Pages sites and
+`sites.harithkavish.com`, which publishes other people's pages, included.
+
+### Cross-origin access
+
+`lib/admin/cors.ts` names `https://admin.harithkavish.com` exactly. Never a
+`*.harithkavish.com` test — "any subdomain" is "any author who signs up" — and
+with `Access-Control-Allow-Credentials` a wildcard is not legal anyway. `Vary:
+Origin` is set whether or not the origin was allowed, so a cache cannot hand one
+origin's answer to another, and every response is `Cache-Control: no-store`.
+
+The session cookie rides along because `admin` and `auth` are different origins
+but the same *site*, so `SameSite=Lax` permits it.
+
+`http://localhost:4173` is admitted only when `NODE_ENV` is not `production`, so
+the console can be worked on against a local instance of this service.
+
+### What is never read
+
+`lib/admin/accounts.ts` selects `password_hash`, `code_hash`, `token_hash`,
+`public_key` and `credential_id` **nowhere**. They are not filtered out
+afterwards — they are never asked for, and each row is assembled field by field,
+so a column added to the schema later cannot arrive in a response because nobody
+remembered to exclude it. The one credential-adjacent fact it reports is whether
+a password is set at all, which is what says whether a person has a way in that
+does not depend on a provider.
+
+It is a read across both halves of the deployable — `users`, `user_identities`,
+`recovery_codes` and `webauthn_credentials` from the account half, `sessions`
+from the authentication half. §15 draws that line for *behaviour*: the halves
+must not implement each other. An operator looking at their own service is a
+third reader of both, and reads nothing either half would not show the person the
+row belongs to.
+
+> The canonical contract does not describe an operator console. This is an
+> addition to the deployable that the contract has not been amended for, and it
+> is recorded here rather than assumed.
 
 ## Security
 
@@ -644,6 +722,8 @@ integration work.
 | `/settings` | Static | Profile; pending Auth integration |
 | `/security` | Static | Password, passkeys, sessions; pending Auth integration |
 | `/delete` | Static | Deletion consequences and confirmation; pending Auth integration |
+| `/api/admin/session` | Dynamic | **Implemented** — owner verdict for the console |
+| `/api/admin/accounts` | Dynamic | **Implemented** — the account table, owner only |
 | `/login` | — | **Does not exist, by design** |
 
 ---
