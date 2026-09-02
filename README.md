@@ -338,14 +338,43 @@ client list: a registry that can be edited at runtime is a way to grant access
 without review, and what this grants is a view of every account in the
 ecosystem. Adding a reader is a deploy.
 
-Two conditions, both required:
+The address must be **proved**, never merely present. An unproved address is text
+somebody typed at sign-up (V27), so matching on one would let anyone reach this
+console by typing the owner's address into a new account.
 
-- the account's address is on the list, **and**
-- `email_verified_at` is not null.
+There are two ways an address counts as proved, and both are accepted:
 
-The second is not a formality. An unproved address is text somebody typed at
-sign-up (V27), so matching on one would let anyone reach this console by typing
-the owner's address into a new account.
+1. `users.email`, with `email_verified_at` set.
+2. A `user_identities` row from a **trusted issuer** whose `email_at_link` is the
+   address. `TRUSTED_ISSUERS` is Google alone — any issuer can assert any
+   address, so "any linked provider" would widen the set of parties who can mint
+   proof of ownership of this console from one to however many are configured.
+
+The second is not a convenience. `proveEmail` in `lib/account/connections.ts`
+writes `users.email` when a provider is **connected**, but
+`resolveFederatedIdentity` does not call it on the path where the link already
+exists — so an account whose Google link predates that function keeps a null
+address however many times its owner signs in with Google. The proof is real; it
+is recorded in the other table. This was not hypothetical: it is what locked the
+owner out of the console on first use.
+
+**This is not the lookup V27 forbids.** That rule is about *resolving an account
+from* a provider-asserted address — "who owns this address?" — which hands an
+account to anyone who can get a provider to assert it. This asks the opposite
+question, of an account the session has already identified: "does this account
+hold a link asserting the owner's address?" Nothing is resolved, created, or
+matched across accounts, and `email_at_link` is only ever written behind the
+provider's own `email_verified`, so a non-null value means somebody proved
+control of that address at that provider.
+
+### A related gap, not closed here
+
+`resolveFederatedIdentity`'s existing-link branch — the ordinary "sign in with
+Google" path — does not call `proveEmail`. An account linked to Google before
+that function existed therefore never gains a `users.email`, and shows as having
+no address anywhere in the product, not only in this console. Calling
+`proveEmail` there would close it for everyone. That is a change to sign-in
+behaviour rather than to the console, so it is recorded rather than made.
 
 Authority comes from the `__Host-` session and the account row behind it, and
 from nothing else. It never comes from `hk.user`: that cookie is scoped to
