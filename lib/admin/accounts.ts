@@ -3,6 +3,7 @@ import 'server-only';
 import { desc, gt, isNull, sql } from 'drizzle-orm';
 
 import { getDb, schema } from '@/lib/db/client';
+import { isAuthenticator } from '@/lib/auth/issuers';
 
 /**
  * The account table, as an operator sees it.
@@ -31,6 +32,17 @@ export interface AccountHolder {
   email: string | null;
   /** Whether a provider proved the address, rather than someone typing it. */
   emailVerified: boolean;
+  /**
+   * Addresses a provider has asserted for this account, where the account row
+   * itself carries none.
+   *
+   * `proveEmail` writes `users.email` when a provider is connected, but the
+   * ordinary federated sign-in path does not call it — so an account whose link
+   * predates that function shows no address at all while a provider has in fact
+   * proved one. Reporting "None" there is simply wrong, so the proof is read
+   * from where it actually lives.
+   */
+  providerEmails: { issuer: string; email: string }[];
   status: 'active' | 'deletion_requested' | 'deleted';
   /** Where the account's picture comes from: `none`, `google`, `gravatar`. */
   pictureSource: string;
@@ -40,8 +52,15 @@ export interface AccountHolder {
    * says whether this person has a way in that does not depend on a provider.
    */
   hasPassword: boolean;
-  /** The issuers linked to this account, e.g. `https://accounts.google.com`. */
-  identities: string[];
+  /**
+   * Providers this person can actually sign in with.
+   *
+   * Not every linked provider is one — see `lib/auth/issuers.ts`. Gravatar is
+   * linked in the same table and can never sign anyone in.
+   */
+  authenticators: string[];
+  /** Providers linked for something other than signing in. */
+  connections: string[];
   /** How many passkeys are registered. */
   passkeys: number;
   /** Unspent recovery codes — the count that matters before a lockout. */
@@ -61,7 +80,7 @@ export interface AccountsSummary {
   deleted: number;
   /** Accounts whose address a provider has proved. */
   verified: number;
-  /** Accounts with a linked provider identity. */
+  /** Accounts that can sign in with a provider. A connection does not count. */
   federated: number;
   /** Accounts that can be signed into with a password. */
   withPassword: number;
@@ -127,6 +146,7 @@ export async function readAccounts(): Promise<AccountsView> {
       .select({
         userId: schema.userIdentities.userId,
         issuer: schema.userIdentities.issuer,
+        emailAtLink: schema.userIdentities.emailAtLink,
       })
       .from(schema.userIdentities),
 
@@ -148,11 +168,31 @@ export async function readAccounts(): Promise<AccountsView> {
       .groupBy(schema.sessions.userId),
   ]);
 
-  const issuersFor = new Map<string, string[]>();
+  /*
+   * Sorted into what each link can do, rather than lumped together. A link is
+   * either a way in or a connection, and the schema does not say which.
+   */
+  const waysIn = new Map<string, string[]>();
+  const connectedTo = new Map<string, string[]>();
+  const assertedEmails = new Map<string, { issuer: string; email: string }[]>();
+
   for (const link of identities) {
-    const list = issuersFor.get(link.userId) ?? [];
+    const bucket = isAuthenticator(link.issuer) ? waysIn : connectedTo;
+    const list = bucket.get(link.userId) ?? [];
     if (!list.includes(link.issuer)) list.push(link.issuer);
-    issuersFor.set(link.userId, list);
+    bucket.set(link.userId, list);
+
+    // Only an authenticator's assertion is reported as an address. A connection
+    // does not write one anyway — `linkProfileProvider` takes no email — so this
+    // is a guard against a future provider that does.
+    if (link.emailAtLink && isAuthenticator(link.issuer)) {
+      const address = link.emailAtLink.trim().toLowerCase();
+      const found = assertedEmails.get(link.userId) ?? [];
+      if (!found.some((entry) => entry.email === address)) {
+        found.push({ issuer: link.issuer, email: address });
+      }
+      assertedEmails.set(link.userId, found);
+    }
   }
 
   const tally = (rows: { userId: string; total: number }[]) =>
@@ -171,7 +211,9 @@ export async function readAccounts(): Promise<AccountsView> {
     status: row.status,
     pictureSource: row.pictureSource,
     hasPassword: row.hasPassword,
-    identities: issuersFor.get(row.id) ?? [],
+    providerEmails: assertedEmails.get(row.id) ?? [],
+    authenticators: waysIn.get(row.id) ?? [],
+    connections: connectedTo.get(row.id) ?? [],
     passkeys: passkeyCount.get(row.id) ?? 0,
     recoveryCodes: recoveryCount.get(row.id) ?? 0,
     sessions: sessionCount.get(row.id) ?? 0,
@@ -190,8 +232,10 @@ export async function readAccounts(): Promise<AccountsView> {
     active: count((row) => row.status === 'active'),
     deletionRequested: count((row) => row.status === 'deletion_requested'),
     deleted: count((row) => row.status === 'deleted'),
-    verified: count((row) => row.emailVerifiedAt !== null),
-    federated: count((row) => (issuersFor.get(row.id)?.length ?? 0) > 0),
+    verified: count(
+      (row) => row.emailVerifiedAt !== null || (assertedEmails.get(row.id)?.length ?? 0) > 0,
+    ),
+    federated: count((row) => (waysIn.get(row.id)?.length ?? 0) > 0),
     withPassword: count((row) => row.hasPassword),
     withPasskey: count((row) => (passkeyCount.get(row.id) ?? 0) > 0),
     withoutRecovery: count((row) => (recoveryCount.get(row.id) ?? 0) === 0),

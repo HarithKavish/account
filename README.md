@@ -18,6 +18,7 @@ The account lifecycle system for the HarithKavish ecosystem.
 - [Data model](#data-model)
 - [Account creation](#account-creation)
 - [The operator console API](#the-operator-console-api)
+- [Signing out](#signing-out)
 - [Security](#security)
 - [Rate limiting](#rate-limiting)
 - [Technology stack](#technology-stack)
@@ -330,6 +331,10 @@ Both are `GET`. Nothing under `/api/admin` writes, which is why a same-site
 request arriving without a CSRF token is harmless: there is no state for it to
 change. **Adding a write to this API means adding a token check with it.**
 
+The console is also what surfaced the sign-out defect described under
+[Signing out](#signing-out): it counted live sessions, and the count only ever
+went up.
+
 ### Who may read it
 
 `lib/admin/owner.ts` holds a constant list of addresses — not an environment
@@ -366,6 +371,24 @@ hold a link asserting the owner's address?" Nothing is resolved, created, or
 matched across accounts, and `email_at_link` is only ever written behind the
 provider's own `email_verified`, so a non-null value means somebody proved
 control of that address at that provider.
+
+### Two linked providers, two different things
+
+`user_identities` holds both, under one schema, with nothing in the row saying
+which is which:
+
+| | Can sign someone in | Role |
+| --- | --- | --- |
+| Google | Yes — the callback resolves an identity and issues a session | `authenticator` |
+| Gravatar | **No** — no sign-in branch, refuses without a session already in hand | `connection` |
+
+The distinction lives in the callbacks, so it cannot be derived from the data.
+`lib/auth/issuers.ts` writes it down once. A reader that treats every link as a
+way in reports that someone can sign in with Gravatar, which is false — and a
+security surface must not say false things. **A new provider must be added to
+that map when its callback is written**; an unknown issuer is treated as a
+connection, so the failure mode is a provider that is under-reported rather than
+one credited with powers it does not have.
 
 ### A related gap, not closed here
 
@@ -415,6 +438,44 @@ row belongs to.
 > The canonical contract does not describe an operator console. This is an
 > addition to the deployable that the contract has not been amended for, and it
 > is recorded here rather than assumed.
+
+---
+
+## Signing out
+
+One sign-in can leave **two** sessions. The front door establishes one, and a
+trip through `/api/session/adopt` establishes a second on the account host —
+that is what the handoff is for, because `__Host-hk_session` is host-only and
+neither host can see the other's.
+
+A host can only destroy its own session, because a session is a cookie and a
+cookie belongs to a host. Signing out used to destroy the session on whichever
+host happened to serve the page and stop there, so:
+
+- the person was told they were signed out,
+- `hk.user` was cleared, so every surface in the ecosystem agreed,
+- and a live session they no longer knew about survived on the other host.
+
+That is the worst shape a sign-out bug can take, and it is why sessions
+accumulated rather than being replaced.
+
+`POST /api/auth/signout` now walks the hosts that can hold one. Each destroys
+its own session, adds itself to `done`, and hands the browser to the next; the
+last redirects to the visitor's destination. The list is fixed and walked
+forwards, so each host is visited at most once and the chain cannot loop.
+
+`done` travels in the form rather than in server state: it describes one
+browser's trip, not the account's state, and a tampered value can only *shorten*
+the chain — which is exactly the old behaviour it replaces, so it grants an
+attacker nothing they did not already have.
+
+Signing out still ends **this browser's** sessions, not every session on the
+account. `destroyAllSessions` exists for credential changes, where ending
+everything is the point.
+
+> Expired session rows are never pruned. Nothing reads them — every query filters
+> on `expires_at` — so this is housekeeping rather than correctness, and it is
+> not done yet.
 
 ## Security
 
