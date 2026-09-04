@@ -26,6 +26,29 @@ export interface UpstashEnv {
   token: string;
 }
 
+/**
+ * Google as an upstream identity provider (contract §7.6).
+ *
+ * The secret is read here and used only in a server-to-server token exchange.
+ * It must never reach a browser, and no Google token is stored anywhere (V26).
+ */
+/**
+ * Gravatar as a profile source (contract §7.6, connect-only).
+ *
+ * Registered at gravatar.com/developers; the flow itself runs against
+ * WordPress.com, which is what issues Gravatar's tokens. The secret must never
+ * reach a browser, and the token is discarded the moment the profile is read.
+ */
+export interface GravatarEnv {
+  clientId: string;
+  clientSecret: string;
+}
+
+export interface GoogleEnv {
+  clientId: string;
+  clientSecret: string;
+}
+
 class EnvError extends Error {
   constructor(message: string) {
     super(message);
@@ -42,7 +65,15 @@ function required(name: string): string {
         'hosting provider for a deployed environment.',
     );
   }
-  return value.trim();
+  /*
+   * Quotes are stripped, not just whitespace.
+   *
+   * A dashboard's copy button and a paste into a web form both like to bring
+   * quotation marks along, and a credential wrapped in them is a different
+   * string — one the provider has never heard of. The failure that produces is
+   * indistinguishable from a wrong credential, so it is worth not having.
+   */
+  return value.trim().replace(/^["'](.*)["']$/, '$1').trim();
 }
 
 /**
@@ -143,6 +174,32 @@ export function readUpstashEnv(): UpstashEnv {
     url: required('UPSTASH_REDIS_REST_URL'),
     token: required('UPSTASH_REDIS_REST_TOKEN'),
   };
+}
+
+export function readGravatarEnv(): GravatarEnv {
+  return {
+    clientId: required('GRAVATAR_CLIENT_ID'),
+    clientSecret: required('GRAVATAR_CLIENT_SECRET'),
+  };
+}
+
+/** True when both Gravatar variables are present. Never throws. */
+export function hasGravatarEnv(): boolean {
+  return Boolean(
+    process.env.GRAVATAR_CLIENT_ID?.trim() && process.env.GRAVATAR_CLIENT_SECRET?.trim(),
+  );
+}
+
+export function readGoogleEnv(): GoogleEnv {
+  return {
+    clientId: required('GOOGLE_CLIENT_ID'),
+    clientSecret: required('GOOGLE_CLIENT_SECRET'),
+  };
+}
+
+/** True when both Google variables are present. Never throws. */
+export function hasGoogleEnv(): boolean {
+  return Boolean(process.env.GOOGLE_CLIENT_ID?.trim() && process.env.GOOGLE_CLIENT_SECRET?.trim());
 }
 
 /** True when both Upstash variables are present. Never throws. */

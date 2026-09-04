@@ -51,6 +51,7 @@ function Created({ account }: { account: SignupSuccess }) {
 export function SignupForm() {
   const [firstName, setFirstName] = useState('');
   const [lastName, setLastName] = useState('');
+  const [email, setEmail] = useState('');
   const [userId, setUserId] = useState('');
   const [password, setPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
@@ -64,7 +65,7 @@ export function SignupForm() {
     event.preventDefault();
     setFormError(null);
 
-    const input = { firstName, lastName, userId, password, confirmPassword };
+    const input = { firstName, lastName, email, userId, password, confirmPassword };
 
     // Fast feedback only. The server runs the same rules authoritatively.
     const errors = validateCreateAccount(input);
@@ -147,6 +148,18 @@ export function SignupForm() {
               disabled={pending}
             />
           </div>
+
+          <Field
+            label="Email"
+            name="email"
+            type="text"
+            value={email}
+            onChange={setEmail}
+            autoComplete="email"
+            error={fieldErrors.email}
+            disabled={pending}
+            hint="Used to recognise you when you sign in with another service."
+          />
 
           <Field
             label="User ID"

@@ -1,5 +1,7 @@
 import {
+  boolean,
   index,
+  integer,
   jsonb,
   pgEnum,
   pgTable,
@@ -8,6 +10,7 @@ import {
   uniqueIndex,
   uuid,
 } from 'drizzle-orm/pg-core';
+import { sql } from 'drizzle-orm';
 
 /**
  * HarithKavish Account — database schema.
@@ -15,15 +18,21 @@ import {
  * SCOPE: this database belongs to the Account Platform, which owns the account
  * lifecycle — creation, profile, credentials as stored data, and deletion.
  *
- * It deliberately contains NO authentication session tables. Establishing and
- * maintaining a login session is the Authentication Platform's responsibility
- * (auth.harithkavish.com). The password hash lives here because the account's
- * credentials are lifecycle data owned by the account; the act of verifying
- * them belongs to Auth.
+ * Under contract §0.5 the account half and the authentication half are one
+ * deployable, so both their tables live here. They are still two owners:
  *
- * There is no `passkeys` table yet, by design. Passkey material is only worth
- * storing once the Account/Auth contract defines who registers credentials and
- * who verifies them. Adding the table before that would guess at the answer.
+ *   - The ACCOUNT half owns `users`, `user_identities`, `recovery_codes` and
+ *     `account_events` — the person, and how they can prove they are them.
+ *   - The AUTHENTICATION half owns `sessions` — the fact that someone proved it,
+ *     just now, on this browser.
+ *
+ * The authentication half reaches account data only through
+ * `lib/account/service.ts`. §15 names the first query across that line as the
+ * point where separating the halves again stops being a refactor, so the line is
+ * kept in code even though nothing enforces it.
+ *
+ * There is no `passkeys` table yet. The contract designs one (§6) but nothing
+ * registers a passkey, and V11's RP ID is only fixed from the first that does.
  */
 
 /**
@@ -58,10 +67,16 @@ export const users = pgTable(
     id: uuid('id').primaryKey().defaultRandom(),
 
     /**
-     * The public login identifier the user chooses and types.
-     * Stored lowercase so uniqueness is case-insensitive.
+     * The public login identifier the user chooses and types, lowercased so
+     * uniqueness is case-insensitive.
+     *
+     * NULL means this person has not chosen one — they arrived through a
+     * provider and have never needed it (§6.4). Postgres allows many NULLs under
+     * a UNIQUE index, so the constraint below is unaffected. It is never
+     * generated on their behalf: it is the name they log in with, and inventing
+     * one takes the choice they may want later.
      */
-    userId: text('user_id').notNull(),
+    userId: text('user_id'),
 
     /**
      * human | ai. Defaults to 'human' so every existing row and every row the
@@ -71,13 +86,48 @@ export const users = pgTable(
      */
     accountType: accountType('account_type').notNull().default('human'),
 
-    /** Argon2id encoded hash. Never returned to a client, never logged. */
-    passwordHash: text('password_hash').notNull(),
+    /**
+     * The account's email address, lowercased.
+     *
+     * Asked for at sign-up and asserted by a provider, so an account may hold one
+     * neither party has proved. `emailVerifiedAt` is what separates the two, and
+     * it is the only one of them that may be matched on.
+     */
+    email: text('email'),
+
+    /**
+     * When someone proved this address, or NULL.
+     *
+     * Proof means a provider asserted it with `email_verified` for an account its
+     * owner already controlled. A typed address is never proof of anything: if an
+     * unproved address could match, anyone could type someone else's, wait, and
+     * collect their next federated sign-in.
+     */
+    emailVerifiedAt: timestamp('email_verified_at', { withTimezone: true }),
+
+    /**
+     * Argon2id encoded hash. Never returned to a client, never logged.
+     *
+     * NULL means this account has no password (§6.4). Deliberately NULL rather
+     * than a sentinel hash: a credential-shaped value in a credential column is
+     * one mistake away from being verified against.
+     */
+    passwordHash: text('password_hash'),
 
     firstName: text('first_name').notNull(),
     lastName: text('last_name').notNull(),
 
     status: accountStatus('status').notNull().default('active'),
+
+    /**
+     * Which picture to show for this account.
+     *
+     * `none` is the placeholder mark, and is the default and the fallback: a
+     * provider's picture is borrowed, not owned, so unlinking or a dead URL must
+     * land somewhere rather than nowhere. Stored as the *source* rather than a
+     * copied URL so the picture follows the provider when it changes.
+     */
+    pictureSource: text('picture_source').notNull().default('none'),
 
     createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
     updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),
@@ -92,6 +142,16 @@ export const users = pgTable(
     // friendly message, but this constraint is what actually guarantees it
     // under concurrent signups.
     uniqueIndex('users_user_id_unique').on(table.userId),
+    /*
+     * Unique among *proved* addresses only.
+     *
+     * Two accounts may hold the same unproved address — one of them typed it and
+     * may simply be wrong — and refusing the second would let anyone reserve an
+     * address they do not own. Once proved, it identifies exactly one account.
+     */
+    uniqueIndex('users_email_verified_unique')
+      .on(table.email)
+      .where(sql`${table.emailVerifiedAt} is not null`),
     index('users_status_idx').on(table.status),
     // Same rationale as the status index: cheap now, and exactly what a
     // future "list AI accounts" / "list human accounts" query would need.
@@ -112,6 +172,14 @@ export const accountEventType = pgEnum('account_event_type', [
   'account_deletion_requested',
   'account_deletion_cancelled',
   'account_deleted',
+  /* Federation (§6.3). Unlinking is a credentials change and must invalidate
+     sessions; linking is not — adding a way in invalidates nothing, and treating
+     it as a change would sign someone out for improving their own security. */
+  'identity_linked',
+  'identity_unlinked',
+  /* Recovery (§6.1). */
+  'recovery_codes_generated',
+  'recovery_code_used',
 ]);
 
 export const accountEvents = pgTable(
@@ -138,3 +206,322 @@ export const accountEvents = pgTable(
 export type UserRow = typeof users.$inferSelect;
 export type NewUserRow = typeof users.$inferInsert;
 export type AccountEventRow = typeof accountEvents.$inferSelect;
+
+/* -------------------------------------------------------------------------- */
+/* Federated identity — contract §6.3                                          */
+/* -------------------------------------------------------------------------- */
+
+/**
+ * A way of proving an account, not an account.
+ *
+ * A HarithKavish account is the identity (V24). Google is one way to reach it,
+ * and a person may hold several links. Removing a link must not remove them.
+ */
+export const userIdentities = pgTable(
+  'user_identities',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+
+    userId: uuid('user_id')
+      .notNull()
+      .references(() => users.id, { onDelete: 'cascade' }),
+
+    /** e.g. `https://accounts.google.com`. Stored verbatim. */
+    issuer: text('issuer').notNull(),
+
+    /** The provider's `sub`. Opaque — never parsed, and never a `sub` of ours. */
+    subject: text('subject').notNull(),
+
+    /**
+     * What the provider asserted when the link was made. Display and audit only.
+     * Deliberately NOT indexed: it is not a lookup key (V27), and an index would
+     * invite it to become one — which is how a verified address becomes an
+     * account-takeover path.
+     */
+    emailAtLink: text('email_at_link'),
+
+    /**
+     * The provider's picture URL, as last asserted. Display only, like the email
+     * beside it, and refreshed on each authentication because these URLs expire.
+     * Never a lookup key.
+     */
+    pictureUrl: text('picture_url'),
+
+    /**
+     * What the provider said about the person when they connected it.
+     *
+     * Display only, and a snapshot rather than a live view: the token that could
+     * refresh it is discarded at connect time (V26), so this is what was true
+     * then and goes stale until they reconnect. Only providers that offer a
+     * profile write here — a provider used purely to prove an identity has
+     * nothing to put in it.
+     */
+    profile: jsonb('profile').$type<Record<string, unknown>>(),
+
+    linkedAt: timestamp('linked_at', { withTimezone: true }).notNull().defaultNow(),
+    lastAuthenticatedAt: timestamp('last_authenticated_at', { withTimezone: true }),
+  },
+  (table) => [
+    // What makes resolve idempotent, and what stops one provider identity
+    // reaching two accounts.
+    uniqueIndex('user_identities_issuer_subject_unique').on(table.issuer, table.subject),
+    index('user_identities_user_id_idx').on(table.userId),
+  ],
+);
+
+/* -------------------------------------------------------------------------- */
+/* Recovery — contract §6.1                                                    */
+/* -------------------------------------------------------------------------- */
+
+/**
+ * The way back in when the only way in is gone.
+ *
+ * A federated-only account has exactly one way in and the ecosystem does not
+ * control it: a disabled Google account would otherwise be permanent lockout.
+ * This is why the contract requires recovery to land before federation.
+ *
+ * Codes are stored hashed, for the same reason passwords are.
+ */
+export const recoveryCodes = pgTable(
+  'recovery_codes',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+
+    userId: uuid('user_id')
+      .notNull()
+      .references(() => users.id, { onDelete: 'cascade' }),
+
+    /** Argon2id hash of the code. The plaintext is shown once and never stored. */
+    codeHash: text('code_hash').notNull(),
+
+    /** Single use. Set the moment it is accepted. */
+    usedAt: timestamp('used_at', { withTimezone: true }),
+
+    createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+  },
+  (table) => [index('recovery_codes_user_id_idx').on(table.userId)],
+);
+
+/* -------------------------------------------------------------------------- */
+/* Sessions — owned by the authentication half                                 */
+/* -------------------------------------------------------------------------- */
+
+/**
+ * Someone proved who they are, on this browser, at this time.
+ *
+ * Opaque and server-side rather than a signed token: revocation is then a
+ * DELETE, not a key rotation and a denylist. First-party SSO does not need a
+ * self-describing token, and a token nobody can withdraw is worse than a lookup.
+ *
+ * The cookie carries a token; only its hash is stored, so a database leak does
+ * not hand over live sessions.
+ */
+export const sessions = pgTable(
+  'sessions',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+
+    userId: uuid('user_id')
+      .notNull()
+      .references(() => users.id, { onDelete: 'cascade' }),
+
+    /** SHA-256 of the cookie token. */
+    tokenHash: text('token_hash').notNull(),
+
+    createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+    lastSeenAt: timestamp('last_seen_at', { withTimezone: true }).notNull().defaultNow(),
+    expiresAt: timestamp('expires_at', { withTimezone: true }).notNull(),
+
+    /** Non-sensitive context, so a person can recognise their own sessions. */
+    userAgent: text('user_agent'),
+  },
+  (table) => [
+    uniqueIndex('sessions_token_hash_unique').on(table.tokenHash),
+    index('sessions_user_id_idx').on(table.userId),
+    index('sessions_expires_at_idx').on(table.expiresAt),
+  ],
+);
+
+/**
+ * A one-time ticket that moves a signed-in person between our own hostnames.
+ *
+ * The session cookie is `__Host-` prefixed, so it is host-only by definition and
+ * `auth.harithkavish.com` cannot hand it to `account.harithkavish.com`. Widening
+ * it to `.harithkavish.com` would fix that in one line and send the session
+ * token to every subdomain — including the GitHub Pages sites — so it is not an
+ * option.
+ *
+ * Instead the auth host mints one of these, the destination host redeems it once
+ * and establishes its own session. The ticket is worthless without being spent,
+ * is bound to the host allowed to spend it, and lives for a minute.
+ */
+/**
+ * A passkey — a WebAuthn credential belonging to an account.
+ *
+ * A way of proving an account, exactly like a provider link, and held the same
+ * way: many per account, each independent, none of them the account itself.
+ *
+ * Everything stored here is public by construction. The private key never leaves
+ * the authenticator, and no biometric ever leaves the device — the authenticator
+ * verifies the person and attests to it, and what arrives here is a signature and
+ * a public key. There is nothing in this table worth stealing.
+ */
+export const webauthnCredentials = pgTable(
+  'webauthn_credentials',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+
+    userId: uuid('user_id')
+      .notNull()
+      .references(() => users.id, { onDelete: 'cascade' }),
+
+    /** The credential's own id, base64url. Unique across every account. */
+    credentialId: text('credential_id').notNull(),
+
+    /** The COSE public key, base64url. Public by definition. */
+    publicKey: text('public_key').notNull(),
+
+    /**
+     * The authenticator's signature counter.
+     *
+     * Raised on every assertion that reports one. A counter that goes backwards
+     * suggests a cloned authenticator, which is the only thing this number is
+     * for. Many modern passkeys report zero always, so it is recorded rather
+     * than relied upon.
+     */
+    counter: integer('counter').notNull().default(0),
+
+    /** How the authenticator can be reached: usb, nfc, ble, internal, hybrid. */
+    transports: text('transports'),
+
+    /** `singleDevice` or `multiDevice`, as the authenticator reported it. */
+    deviceType: text('device_type'),
+
+    /** Whether the credential is backed up — a synced passkey, typically. */
+    backedUp: boolean('backed_up').notNull().default(false),
+
+    /**
+     * What the person calls it.
+     *
+     * WebAuthn does not say what device made a credential, so this is theirs to
+     * set. A neutral default is used rather than a guess: a name invented from
+     * a user-agent string is wrong often enough to be worse than none.
+     */
+    displayName: text('display_name').notNull(),
+
+    createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+    lastUsedAt: timestamp('last_used_at', { withTimezone: true }),
+  },
+  (table) => [
+    uniqueIndex('webauthn_credentials_credential_id_unique').on(table.credentialId),
+    index('webauthn_credentials_user_id_idx').on(table.userId),
+  ],
+);
+
+export type WebauthnCredentialRow = typeof webauthnCredentials.$inferSelect;
+
+export const sessionTickets = pgTable(
+  'session_tickets',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+
+    userId: uuid('user_id')
+      .notNull()
+      .references(() => users.id, { onDelete: 'cascade' }),
+
+    /** SHA-256 of the ticket, never the ticket. Same reasoning as sessions. */
+    tokenHash: text('token_hash').notNull(),
+
+    /** The only hostname permitted to redeem it. */
+    host: text('host').notNull(),
+
+    createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+    expiresAt: timestamp('expires_at', { withTimezone: true }).notNull(),
+
+    /** Set on redemption. Single use is enforced against this being NULL. */
+    usedAt: timestamp('used_at', { withTimezone: true }),
+  },
+  (table) => [
+    uniqueIndex('session_tickets_token_hash_unique').on(table.tokenHash),
+    index('session_tickets_expires_at_idx').on(table.expiresAt),
+  ],
+);
+
+export type UserIdentityRow = typeof userIdentities.$inferSelect;
+export type RecoveryCodeRow = typeof recoveryCodes.$inferSelect;
+export type SessionRow = typeof sessions.$inferSelect;
+export type SessionTicketRow = typeof sessionTickets.$inferSelect;
+
+/* -------------------------------------------------------------------------- */
+/* First-party OAuth — how other surfaces get an authenticated subject          */
+/* -------------------------------------------------------------------------- */
+
+/**
+ * An authorization code, in flight.
+ *
+ * Short-lived and single-use (V16). Stored hashed for the same reason a session
+ * token is: what is in the database should not be usable if the database leaks.
+ *
+ * The code is bound to the client, the exact redirect it was issued for, and
+ * the PKCE challenge — so a code intercepted in a redirect is worthless without
+ * the verifier that never left the client.
+ */
+export const oauthCodes = pgTable(
+  'oauth_codes',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+
+    codeHash: text('code_hash').notNull(),
+
+    clientId: text('client_id').notNull(),
+    userId: uuid('user_id')
+      .notNull()
+      .references(() => users.id, { onDelete: 'cascade' }),
+
+    /** Exact match, never a prefix (V14). */
+    redirectUri: text('redirect_uri').notNull(),
+
+    /** S256 only (V13). */
+    codeChallenge: text('code_challenge').notNull(),
+
+    expiresAt: timestamp('expires_at', { withTimezone: true }).notNull(),
+    /** Set the moment it is spent, so a replay finds it already used. */
+    usedAt: timestamp('used_at', { withTimezone: true }),
+
+    createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+  },
+  (table) => [
+    uniqueIndex('oauth_codes_code_hash_unique').on(table.codeHash),
+    index('oauth_codes_expires_at_idx').on(table.expiresAt),
+  ],
+);
+
+/**
+ * An access token, issued to a surface so it can ask who just signed in.
+ *
+ * Five minutes (V15). It exists to be spent once against `/oauth/userinfo` and
+ * is not a session: the surface mints its own from what it learns (V3).
+ */
+export const oauthTokens = pgTable(
+  'oauth_tokens',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+
+    tokenHash: text('token_hash').notNull(),
+
+    clientId: text('client_id').notNull(),
+    userId: uuid('user_id')
+      .notNull()
+      .references(() => users.id, { onDelete: 'cascade' }),
+
+    expiresAt: timestamp('expires_at', { withTimezone: true }).notNull(),
+    createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+  },
+  (table) => [
+    uniqueIndex('oauth_tokens_token_hash_unique').on(table.tokenHash),
+    index('oauth_tokens_expires_at_idx').on(table.expiresAt),
+  ],
+);
+
+export type OauthCodeRow = typeof oauthCodes.$inferSelect;
+export type OauthTokenRow = typeof oauthTokens.$inferSelect;

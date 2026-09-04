@@ -11,8 +11,9 @@ function normalize(path: string): string {
 
 /**
  * Account management: category rail on the left, selected category on the
- * right. No route guard — the Account Platform has no session to guard with.
- * Individual pages declare their own dependency on the Auth Platform.
+ * right. The guard is `requireAccount` in each page rather than here: a layout
+ * cannot redirect before its pages render, and a rail drawn around a
+ * signed-out page would be a rail to nowhere.
  */
 export function AccountLayout({ title, children }: { title: string; children: React.ReactNode }) {
   const pathname = normalize(usePathname());

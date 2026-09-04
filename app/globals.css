@@ -1,16 +1,22 @@
 /*
  * HarithKavish Account — design system.
  *
- * Colour, elevation and type come from the shared design system, imported
- * below, so the Account Platform reads as part of the same family without
- * restating its values. The component layer here is specific to this product:
- * a settings application, not a marketing site.
+ * The shared design system is imported below — tokens, the base layer, and the
+ * components. The sign-in page is built from the same section heads, stacks and
+ * buttons every other surface uses, and importing only the tokens left those
+ * classes with no styling at all.
+ *
+ * The product layer that follows is specific to this application: a settings
+ * application, not a marketing site. It comes after the imports, so where the
+ * two describe the same class this file wins.
  *
  * Imported rather than linked in the layout: the App Router owns <head>, and
  * rendering one here caused React to tear it down and rebuild it (#418).
  */
 
-@import url("https://harithkavish.com/design-system/v1.0.0/tokens.css?v=20260829.2");
+@import url("https://harithkavish.com/design-system/v1.0.0/tokens.css?v=20260830.2");
+@import url("https://harithkavish.com/design-system/v1.0.0/base.css?v=20260830.2");
+@import url("https://harithkavish.com/design-system/v1.0.0/components.css?v=20260830.2");
 
 :root {
     color-scheme: light;
@@ -321,6 +327,15 @@ code {
     font-weight: 650;
 }
 
+/* Sits under a group title to say what the controls below it will do. */
+.group__lead {
+    margin: 0 0 0.9rem;
+    max-width: 60ch;
+    color: var(--muted);
+    font-size: 0.9rem;
+    line-height: 1.55;
+}
+
 .rows {
     border: 1px solid var(--border);
     border-radius: var(--radius-card);
@@ -608,6 +623,302 @@ code {
 
 .button--secondary:hover:not(:disabled) {
     background: var(--surface-soft);
+}
+
+/*
+ * Restated from the shared layer, not invented here.
+ *
+ * This file keeps its own `.button` base, and it is loaded after the design
+ * system's `@import`s — so `.button { background: var(--surface) }` beats the
+ * shared `.button--danger` at equal specificity and the variant silently loses.
+ * Until the local button system is folded into the shared one, a variant that
+ * exists upstream still has to be repeated here to survive the cascade.
+ */
+.button--danger {
+    background: var(--status-danger-bg);
+    color: var(--status-danger-fg);
+    border-color: var(--status-danger-border);
+    box-shadow: none;
+}
+
+.button--danger:hover:not(:disabled) {
+    background: var(--status-danger-fg);
+    color: var(--surface);
+    border-color: transparent;
+}
+
+/* A control that is only an icon: the affordance on a row that is read, not
+   filled in. Sized for touch even though the mark inside it is small. */
+.site-footer__links {
+    display: inline-flex;
+    gap: 1.1rem;
+}
+
+.site-footer__links a {
+    color: inherit;
+}
+
+.provider-profile__value {
+    overflow-wrap: anywhere;
+}
+
+.provider-profile__list {
+    margin: 0;
+    padding: 0;
+    list-style: none;
+    display: grid;
+    gap: 0.3rem;
+}
+
+.provider-profile__list .provider-profile__list {
+    margin-top: 0.25rem;
+    padding-left: 0.8rem;
+    border-left: 1px solid var(--border);
+}
+
+.provider-profile__sublabel {
+    color: var(--muted);
+    font-size: 0.82rem;
+}
+
+/* A document, not an interface. Measure is capped so the lines stay readable
+   and the headings carry the structure rather than boxes. */
+.legal {
+    max-width: 68ch;
+    margin: 0 auto;
+    padding: 0 0 3rem;
+}
+
+.legal__title {
+    margin: 0 0 0.35rem;
+    font-size: 1.9rem;
+    font-weight: 680;
+    letter-spacing: -0.01em;
+}
+
+.legal__meta {
+    margin: 0 0 2rem;
+    color: var(--muted);
+    font-size: 0.85rem;
+}
+
+.legal h3 {
+    margin: 1.5rem 0 0.5rem;
+    font-size: 0.95rem;
+    font-weight: 640;
+}
+
+.legal h2 {
+    margin: 2.1rem 0 0.6rem;
+    font-size: 1.05rem;
+    font-weight: 650;
+}
+
+.legal p,
+.legal li {
+    color: var(--muted);
+    font-size: 0.94rem;
+    line-height: 1.65;
+}
+
+.legal p {
+    margin: 0 0 0.9rem;
+}
+
+.legal ul {
+    margin: 0 0 1.1rem;
+    padding-left: 1.15rem;
+    display: grid;
+    gap: 0.45rem;
+}
+
+.legal strong {
+    color: var(--text);
+    font-weight: 620;
+}
+
+.legal a {
+    color: var(--text);
+    text-decoration: underline;
+    text-underline-offset: 0.18em;
+}
+
+.mono {
+    font-family: var(--font-mono, ui-monospace, SFMono-Regular, Menlo, monospace);
+    font-size: 0.92em;
+}
+
+/* Something the account needs, stated where it will be seen rather than in a
+   dialog that gets dismissed on the way to something else. */
+.form__actions--wrap {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.6rem;
+}
+
+.notice {
+    margin: 0 0 1.4rem;
+    padding: 0.95rem 1.1rem;
+    border: 1px solid var(--status-progress-border);
+    border-radius: var(--radius-inner);
+    background: var(--status-progress-bg);
+}
+
+.notice__title {
+    margin: 0 0 0.35rem;
+    font-size: 0.95rem;
+    font-weight: 650;
+}
+
+.notice__body {
+    margin: 0;
+    color: var(--muted);
+    font-size: 0.88rem;
+    line-height: 1.55;
+}
+
+.notice__actions {
+    margin: 0.85rem 0 0;
+}
+
+.identity {
+    display: flex;
+    align-items: center;
+    gap: 0.9rem;
+    margin-bottom: 1rem;
+}
+
+.identity__text {
+    display: grid;
+    gap: 0.15rem;
+    min-width: 0;
+}
+
+.identity__name {
+    font-size: 1.05rem;
+    font-weight: 650;
+}
+
+.identity__handle {
+    color: var(--muted);
+    font-size: 0.86rem;
+}
+
+.icon-button {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.35rem;
+    padding: 0.4rem 0.55rem;
+    border: 1px solid transparent;
+    border-radius: var(--radius-inner);
+    background: transparent;
+    color: var(--muted);
+    font: inherit;
+    font-size: 0.82rem;
+    cursor: pointer;
+}
+
+.icon-button:hover {
+    border-color: var(--border);
+    background: var(--surface-soft);
+    color: var(--text);
+}
+
+.button--slim {
+    padding: 0.42rem 0.85rem;
+    font-size: 0.85rem;
+}
+
+/* A row mid-edit is a form. It keeps the row's shape so the page does not jump
+   when the input appears. */
+.row--editing {
+    align-items: start;
+}
+
+.row__trailing--actions {
+    display: inline-flex;
+    gap: 0.45rem;
+}
+
+.row__error {
+    display: block;
+    margin-top: 0.35rem;
+    color: var(--status-danger-fg);
+    font-size: 0.82rem;
+}
+
+.group__lead--after {
+    margin: 0.9rem 0 0;
+}
+
+/* The account's picture, and choosing it. */
+.avatar {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    flex: none;
+    border-radius: var(--radius-pill);
+    border: 1px solid var(--border);
+    background: var(--surface-soft);
+    object-fit: cover;
+    overflow: hidden;
+}
+
+.avatar--placeholder {
+    color: var(--muted);
+}
+
+.avatar--placeholder svg {
+    width: 62%;
+    height: 62%;
+    display: block;
+}
+
+.picture {
+    display: flex;
+    align-items: center;
+    gap: 1rem;
+}
+
+.picture--editing {
+    display: grid;
+    gap: 1rem;
+    justify-items: start;
+}
+
+.picture__choices {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.75rem;
+}
+
+.picture__choice {
+    display: grid;
+    justify-items: center;
+    gap: 0.45rem;
+    padding: 0.7rem 0.9rem;
+    border: 1px solid var(--border);
+    border-radius: var(--radius-inner);
+    background: transparent;
+    color: var(--muted);
+    font: inherit;
+    font-size: 0.82rem;
+    cursor: pointer;
+}
+
+.picture__choice:hover {
+    background: var(--surface-soft);
+    color: var(--text);
+}
+
+.picture__choice.is-selected {
+    border-color: var(--accent);
+    color: var(--text);
+    box-shadow: 0 0 0 1px var(--accent);
+}
+
+.picture__choice-label {
+    font-weight: 600;
 }
 
 .button--full {
@@ -917,4 +1228,21 @@ code {
         grid-column: 2;
         grid-row: 1 / span 2;
     }
+}
+
+/* "or" between our own sign-in and a provider's, so the two read as
+   alternatives rather than a list. */
+.login-divider {
+  display: flex;
+  align-items: center;
+  gap: var(--space-sm);
+  color: var(--muted);
+  font-size: var(--font-size-sm);
+}
+.login-divider::before,
+.login-divider::after {
+  content: '';
+  flex: 1;
+  height: var(--border-hairline);
+  background: var(--border);
 }

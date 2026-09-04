@@ -5,10 +5,10 @@
   "engines": {
     "node": "22.x"
   },
-  "description": "HarithKavish Account — centralized identity for HarithKavish platforms.",
+  "description": "HarithKavish Account \u2014 centralized identity for HarithKavish platforms.",
   "scripts": {
     "dev": "next dev",
-    "build": "next build",
+    "build": "tsx scripts/migrate-on-deploy.mts && next build",
     "start": "next start",
     "lint": "eslint",
     "typecheck": "tsc --noEmit",
@@ -17,15 +17,20 @@
     "db:migrate": "drizzle-kit migrate",
     "db:studio": "drizzle-kit studio",
     "verify:signup": "tsx scripts/verify-signup.mts",
+    "verify:passkeys": "tsx scripts/verify-passkeys.mts",
     "verify:account-type": "tsx scripts/verify-account-type.mts",
-    "db:schema": "tsx scripts/schema-report.mts"
+    "db:schema": "tsx scripts/schema-report.mts",
+    "db:migrate:deploy": "tsx scripts/migrate-on-deploy.mts"
   },
   "dependencies": {
     "@neondatabase/serverless": "^1.1.0",
     "@node-rs/argon2": "^2.0.2",
+    "@simplewebauthn/browser": "^13.3.0",
+    "@simplewebauthn/server": "^13.3.3",
     "@upstash/ratelimit": "^2.0.8",
     "@upstash/redis": "^1.38.2",
     "drizzle-orm": "^0.45.2",
+    "jose": "^6.2.10",
     "next": "16.3.0",
     "react": "19.2.8",
     "react-dom": "19.2.8",

@@ -51,6 +51,16 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
          * before any page content is parsed or painted, so the theme is applied
          * just as early and there is still no flash.
          */}
+        {/* The ecosystem's shared state, loaded before the theme script that
+            reads from it. In <body> for the same reason that script is: the App
+            Router owns <head>, and rendering one here caused React error #418.
+
+            Synchronous on purpose. The theme script below reads window.HarithStore
+            the moment it runs, and it runs before anything paints — deferring this
+            would mean the first frame is drawn from no stored preference, which is
+            the flash both scripts exist to prevent. */}
+        {/* eslint-disable-next-line @next/next/no-sync-scripts */}
+        <script src="https://harithkavish.com/design-system/v1.0.0/harith-store.js?v=20260830.2" />
         <script dangerouslySetInnerHTML={{ __html: themeInitScript }} />
         {children}
       </body>
