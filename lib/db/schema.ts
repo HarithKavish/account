@@ -39,6 +39,18 @@ export const accountStatus = pgEnum('account_status', [
   'deleted',
 ]);
 
+/**
+ * What kind of entity an account belongs to.
+ *
+ * Phase 1 of the human/agent platform (see project notes): this only makes
+ * `account_type` a real, queryable classification. It does NOT add AI
+ * registration, AI credentials, agent auth, or any way to actually create an
+ * `ai` account yet — every account created through the existing signup flow
+ * is still `human`, via the column default below. Onboarding a `$~`-style
+ * agent identity is deliberately out of scope here.
+ */
+export const accountType = pgEnum('account_type', ['human', 'ai']);
+
 export const users = pgTable(
   'users',
   {
@@ -50,6 +62,14 @@ export const users = pgTable(
      * Stored lowercase so uniqueness is case-insensitive.
      */
     userId: text('user_id').notNull(),
+
+    /**
+     * human | ai. Defaults to 'human' so every existing row and every row the
+     * current signup flow creates is classified without any code change —
+     * only a future, not-yet-built agent onboarding path would ever insert
+     * 'ai'.
+     */
+    accountType: accountType('account_type').notNull().default('human'),
 
     /** Argon2id encoded hash. Never returned to a client, never logged. */
     passwordHash: text('password_hash').notNull(),
@@ -73,6 +93,9 @@ export const users = pgTable(
     // under concurrent signups.
     uniqueIndex('users_user_id_unique').on(table.userId),
     index('users_status_idx').on(table.status),
+    // Same rationale as the status index: cheap now, and exactly what a
+    // future "list AI accounts" / "list human accounts" query would need.
+    index('users_account_type_idx').on(table.accountType),
   ],
 );
 

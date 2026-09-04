@@ -22,6 +22,7 @@ function toProfile(row: typeof schema.users.$inferSelect): AccountProfile {
   return {
     id: row.id,
     userId: row.userId,
+    accountType: row.accountType,
     firstName: row.firstName,
     lastName: row.lastName,
     status: row.status,

@@ -17,6 +17,7 @@
     "db:migrate": "drizzle-kit migrate",
     "db:studio": "drizzle-kit studio",
     "verify:signup": "tsx scripts/verify-signup.mts",
+    "verify:account-type": "tsx scripts/verify-account-type.mts",
     "db:schema": "tsx scripts/schema-report.mts"
   },
   "dependencies": {
