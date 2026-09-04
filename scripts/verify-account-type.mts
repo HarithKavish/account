@@ -131,8 +131,19 @@ try {
 
     // 7. An invalid value is rejected by the enum constraint itself, not just
     //    application code.
+    //
+    // A SAVEPOINT wraps this specific statement, not a full ROLLBACK/BEGIN:
+    // a plain ROLLBACK undoes the WHOLE transaction back to its original
+    // BEGIN, including steps 5 and 6's already-successful inserts -- which
+    // is exactly the second bug this replaced. It passed its own check (the
+    // invalid insert was correctly rejected) but silently deleted step 5's
+    // row, so step 8's foreign-key insert then failed for a completely
+    // unrelated reason: the user it pointed at no longer existed. Caught in
+    // production. ROLLBACK TO SAVEPOINT undoes only the work since the
+    // savepoint, leaving 5 and 6 intact and the transaction still usable.
     let invalidRejected = false;
     let invalidCode = '';
+    await client.query('savepoint before_invalid_insert');
     try {
       const c = baseUserRow('invalid');
       await client.query(
@@ -145,14 +156,13 @@ try {
       // 22P02 = invalid_text_representation, Postgres's error for a value
       // that is not a member of the enum type.
       invalidRejected = invalidCode === '22P02';
+    } finally {
+      // Runs whether the insert was rejected as expected or not -- any
+      // statement error poisons the transaction until either this or a full
+      // rollback, and the whole point of the savepoint is to need only this.
+      await client.query('rollback to savepoint before_invalid_insert');
     }
     check('an invalid account_type value is rejected by the database', invalidRejected, invalidCode || 'inserted!');
-    if (!invalidRejected) {
-      // The failed insert may have poisoned the transaction; recover so the
-      // remaining checks and the final rollback can still run cleanly.
-      await client.query('rollback');
-      await client.query('begin');
-    }
 
     // 8. The existing users -> account_events relationship is unaffected by
     //    the new column, for either account type.
