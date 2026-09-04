@@ -6,12 +6,20 @@
  * (auth.harithkavish.com) and must not reappear here.
  */
 
+/**
+ * human | ai. Phase 1 of the human/agent platform: every account created
+ * through the current signup flow is 'human'. No code path can produce 'ai'
+ * yet -- that is a deliberately separate, later piece of work.
+ */
+export type AccountType = 'human' | 'ai';
+
 /** An account as it may be shown to a client. Never carries the hash. */
 export interface AccountProfile {
   /** Internal identifier. Never used as a login identity. */
   id: string;
   /** The public identifier the user signs in with, stored lowercase. */
   userId: string;
+  accountType: AccountType;
   firstName: string;
   lastName: string;
   status: 'active' | 'deletion_requested' | 'deleted';
