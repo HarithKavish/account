@@ -1,12 +1,33 @@
 import Link from 'next/link';
+import { cookies } from 'next/headers';
+import { redirect } from 'next/navigation';
+
 import { AppShell } from '@/components/app-shell';
+import { ECOSYSTEM_USER_COOKIE } from '@/lib/auth/ecosystem-cookie';
+import { getSessionUser } from '@/lib/auth/session';
 import { authPlatform } from '@/lib/config/site';
+
+/** Reads cookies to decide where to send someone, so it cannot be static. */
+export const dynamic = 'force-dynamic';
 
 /**
  * The entry point. Directs a visitor without an account to create one, and a
  * visitor who has one to management. It does not offer to sign anyone in.
+ *
+ * Someone arriving from another surface — the launcher tile on nexus, say — is
+ * already signed in and wants their account, not an invitation to create one.
+ * They are sent to `/account`, which does the real check.
+ *
+ * The display cookie is a hint and nothing more: it decides which page to show,
+ * never what anyone may see. `/account` requires a session of its own and will
+ * send them through the front door if there is none, so a forged hint buys
+ * exactly one redirect to a page that refuses.
  */
-export default function HomePage() {
+export default async function HomePage() {
+  const jar = await cookies();
+  const appearsSignedIn = Boolean(await getSessionUser()) || jar.has(ECOSYSTEM_USER_COOKIE);
+  if (appearsSignedIn) redirect('/account');
+
   return (
     <AppShell>
       <section className="hero">
@@ -17,7 +38,7 @@ export default function HomePage() {
         </p>
 
         <div className="hero__actions">
-          <Link className="button button--primary" href="/signup">
+          <Link className="button button--primary" href="/create_account">
             Create your account
           </Link>
           <Link className="button button--secondary" href="/account">

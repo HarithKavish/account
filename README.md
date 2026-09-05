@@ -4,10 +4,9 @@ The account lifecycle system for the HarithKavish ecosystem.
 
 **Production domain:** https://account.harithkavish.com
 
-> **Deployment status:** deployed to Vercel production and verified against the
-> production database. The custom domain is attached but **DNS has not been cut
-> over**, so `account.harithkavish.com` still serves the previous static build
-> from GitHub Pages. See [Deployment](#deployment).
+> **Deployment status:** deployed and serving. `account.harithkavish.com`
+> returns this application, verified against the production database. The
+> earlier note that DNS had not been cut over is no longer true.
 
 ---
 
@@ -18,6 +17,8 @@ The account lifecycle system for the HarithKavish ecosystem.
 - [Architecture](#architecture)
 - [Data model](#data-model)
 - [Account creation](#account-creation)
+- [The operator console API](#the-operator-console-api)
+- [Signing out](#signing-out)
 - [Security](#security)
 - [Rate limiting](#rate-limiting)
 - [Technology stack](#technology-stack)
@@ -28,6 +29,12 @@ The account lifecycle system for the HarithKavish ecosystem.
 - [Roadmap](#roadmap)
 
 ---
+
+## Architecture, in one line
+
+This platform and `auth.harithkavish.com` are **one deployable at this origin**,
+with the ownership boundary between them kept in the code. The reasoning is
+[§0.5 and §15 of the canonical contract](docs/account-auth-canonical-contract.md).
 
 ## Purpose
 
@@ -303,6 +310,172 @@ User IDs are normalised to lowercase, so uniqueness is case-insensitive.
 Email addresses are valid user IDs.
 
 ---
+
+---
+
+## The operator console API
+
+`admin.harithkavish.com` ([HarithKavish/admin](https://github.com/HarithKavish/admin))
+is a static page on GitHub Pages that shows every account holder in the
+ecosystem. It holds no session and can hold none — the adopt allow-list in
+`lib/auth/hosts.ts` exists to keep the Pages sites off `__Host-hk_session` — so
+it reads two routes here from the browser, carrying the visitor's own session
+cookie.
+
+| Route | Answers |
+| --- | --- |
+| `GET /api/admin/session` | `200` owner · `403` signed in, not the owner · `401` no session |
+| `GET /api/admin/accounts` | The account table, to the owner only |
+
+Both are `GET`. Nothing under `/api/admin` writes, which is why a same-site
+request arriving without a CSRF token is harmless: there is no state for it to
+change. **Adding a write to this API means adding a token check with it.**
+
+The console is also what surfaced the sign-out defect described under
+[Signing out](#signing-out): it counted live sessions, and the count only ever
+went up.
+
+### Who may read it
+
+`lib/admin/owner.ts` holds a constant list of addresses — not an environment
+variable and not a table, for the reason `lib/oauth/clients.ts` gives for its
+client list: a registry that can be edited at runtime is a way to grant access
+without review, and what this grants is a view of every account in the
+ecosystem. Adding a reader is a deploy.
+
+The address must be **proved**, never merely present. An unproved address is text
+somebody typed at sign-up (V27), so matching on one would let anyone reach this
+console by typing the owner's address into a new account.
+
+There are two ways an address counts as proved, and both are accepted:
+
+1. `users.email`, with `email_verified_at` set.
+2. A `user_identities` row from a **trusted issuer** whose `email_at_link` is the
+   address. `TRUSTED_ISSUERS` is Google alone — any issuer can assert any
+   address, so "any linked provider" would widen the set of parties who can mint
+   proof of ownership of this console from one to however many are configured.
+
+The second is not a convenience. `proveEmail` in `lib/account/connections.ts`
+writes `users.email` when a provider is **connected**, but
+`resolveFederatedIdentity` does not call it on the path where the link already
+exists — so an account whose Google link predates that function keeps a null
+address however many times its owner signs in with Google. The proof is real; it
+is recorded in the other table. This was not hypothetical: it is what locked the
+owner out of the console on first use.
+
+**This is not the lookup V27 forbids.** That rule is about *resolving an account
+from* a provider-asserted address — "who owns this address?" — which hands an
+account to anyone who can get a provider to assert it. This asks the opposite
+question, of an account the session has already identified: "does this account
+hold a link asserting the owner's address?" Nothing is resolved, created, or
+matched across accounts, and `email_at_link` is only ever written behind the
+provider's own `email_verified`, so a non-null value means somebody proved
+control of that address at that provider.
+
+### Two linked providers, two different things
+
+`user_identities` holds both, under one schema, with nothing in the row saying
+which is which:
+
+| | Can sign someone in | Role |
+| --- | --- | --- |
+| Google | Yes — the callback resolves an identity and issues a session | `authenticator` |
+| Gravatar | **No** — no sign-in branch, refuses without a session already in hand | `connection` |
+
+The distinction lives in the callbacks, so it cannot be derived from the data.
+`lib/auth/issuers.ts` writes it down once. A reader that treats every link as a
+way in reports that someone can sign in with Gravatar, which is false — and a
+security surface must not say false things. **A new provider must be added to
+that map when its callback is written**; an unknown issuer is treated as a
+connection, so the failure mode is a provider that is under-reported rather than
+one credited with powers it does not have.
+
+### A related gap, not closed here
+
+`resolveFederatedIdentity`'s existing-link branch — the ordinary "sign in with
+Google" path — does not call `proveEmail`. An account linked to Google before
+that function existed therefore never gains a `users.email`, and shows as having
+no address anywhere in the product, not only in this console. Calling
+`proveEmail` there would close it for everyone. That is a change to sign-in
+behaviour rather than to the console, so it is recorded rather than made.
+
+Authority comes from the `__Host-` session and the account row behind it, and
+from nothing else. It never comes from `hk.user`: that cookie is scoped to
+`.harithkavish.com`, so every subdomain can write it — the Pages sites and
+`sites.harithkavish.com`, which publishes other people's pages, included.
+
+### Cross-origin access
+
+`lib/admin/cors.ts` names `https://admin.harithkavish.com` exactly. Never a
+`*.harithkavish.com` test — "any subdomain" is "any author who signs up" — and
+with `Access-Control-Allow-Credentials` a wildcard is not legal anyway. `Vary:
+Origin` is set whether or not the origin was allowed, so a cache cannot hand one
+origin's answer to another, and every response is `Cache-Control: no-store`.
+
+The session cookie rides along because `admin` and `auth` are different origins
+but the same *site*, so `SameSite=Lax` permits it.
+
+`http://localhost:4173` is admitted only when `NODE_ENV` is not `production`, so
+the console can be worked on against a local instance of this service.
+
+### What is never read
+
+`lib/admin/accounts.ts` selects `password_hash`, `code_hash`, `token_hash`,
+`public_key` and `credential_id` **nowhere**. They are not filtered out
+afterwards — they are never asked for, and each row is assembled field by field,
+so a column added to the schema later cannot arrive in a response because nobody
+remembered to exclude it. The one credential-adjacent fact it reports is whether
+a password is set at all, which is what says whether a person has a way in that
+does not depend on a provider.
+
+It is a read across both halves of the deployable — `users`, `user_identities`,
+`recovery_codes` and `webauthn_credentials` from the account half, `sessions`
+from the authentication half. §15 draws that line for *behaviour*: the halves
+must not implement each other. An operator looking at their own service is a
+third reader of both, and reads nothing either half would not show the person the
+row belongs to.
+
+> The canonical contract does not describe an operator console. This is an
+> addition to the deployable that the contract has not been amended for, and it
+> is recorded here rather than assumed.
+
+---
+
+## Signing out
+
+One sign-in can leave **two** sessions. The front door establishes one, and a
+trip through `/api/session/adopt` establishes a second on the account host —
+that is what the handoff is for, because `__Host-hk_session` is host-only and
+neither host can see the other's.
+
+A host can only destroy its own session, because a session is a cookie and a
+cookie belongs to a host. Signing out used to destroy the session on whichever
+host happened to serve the page and stop there, so:
+
+- the person was told they were signed out,
+- `hk.user` was cleared, so every surface in the ecosystem agreed,
+- and a live session they no longer knew about survived on the other host.
+
+That is the worst shape a sign-out bug can take, and it is why sessions
+accumulated rather than being replaced.
+
+`POST /api/auth/signout` now walks the hosts that can hold one. Each destroys
+its own session, adds itself to `done`, and hands the browser to the next; the
+last redirects to the visitor's destination. The list is fixed and walked
+forwards, so each host is visited at most once and the chain cannot loop.
+
+`done` travels in the form rather than in server state: it describes one
+browser's trip, not the account's state, and a tampered value can only *shorten*
+the chain — which is exactly the old behaviour it replaces, so it grants an
+attacker nothing they did not already have.
+
+Signing out still ends **this browser's** sessions, not every session on the
+account. `destroyAllSessions` exists for credential changes, where ending
+everything is the point.
+
+> Expired session rows are never pruned. Nothing reads them — every query filters
+> on `expires_at` — so this is housekeeping rather than correctness, and it is
+> not done yet.
 
 ## Security
 
@@ -612,15 +785,16 @@ production is.
 
 ### Not implemented
 
-- **Production deployment** of the current codebase
-- **Authentication integration** with `auth.harithkavish.com` — no contract
-  exists and nothing communicates with it
+- **Authentication** — this platform still performs none
+- **Federated sign-in** — specified in the contract (v1.3–v1.5); no code
 - **Profile editing** — UI structure exists; the operation needs identity proof
 - **Password change** — UI structure exists; needs identity proof
 - **Account deletion workflow** — data model and confirmation UI exist, but
   there is deliberately **no deletion endpoint**, as an unauthenticated delete
   would be unsafe
-- **Passkeys** — no table, no WebAuthn code
+- **Passkeys** — no table, no WebAuthn code. That absence is what let the
+  WebAuthn RP ID move to this origin under the contract's §0.5; it is fixed from
+  the first registered passkey
 - Integration with Forge, Nexus or VR
 
 Every management operation that requires knowing *who is asking* renders an
@@ -638,6 +812,8 @@ integration work.
 | `/settings` | Static | Profile; pending Auth integration |
 | `/security` | Static | Password, passkeys, sessions; pending Auth integration |
 | `/delete` | Static | Deletion consequences and confirmation; pending Auth integration |
+| `/api/admin/session` | Dynamic | **Implemented** — owner verdict for the console |
+| `/api/admin/accounts` | Dynamic | **Implemented** — the account table, owner only |
 | `/login` | — | **Does not exist, by design** |
 
 ---

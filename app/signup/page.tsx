@@ -1,21 +1,9 @@
-import type { Metadata } from 'next';
-import { AppShell } from '@/components/app-shell';
-import { SignupForm } from './signup-form';
-
-export const metadata: Metadata = {
-  title: 'Create your account',
-};
+import { permanentRedirect } from 'next/navigation';
 
 /**
- * Account creation writes to the real database via a Server Action, so this
- * route must never be statically prerendered.
+ * The route moved to /create_account, which is what the ecosystem's sign-in page
+ * links to. Kept so anything already pointing here still arrives.
  */
-export const dynamic = 'force-dynamic';
-
-export default function SignupPage() {
-  return (
-    <AppShell centered>
-      <SignupForm />
-    </AppShell>
-  );
+export default function SignupRedirect() {
+  permanentRedirect('/create_account');
 }

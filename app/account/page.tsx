@@ -1,17 +1,76 @@
 import type { Metadata } from 'next';
 import Link from 'next/link';
+
+import { Avatar } from '@/components/avatar';
 import { AppShell } from '@/components/app-shell';
 import { AccountLayout } from '@/components/account-layout';
-import { PendingAuth } from '@/components/pending-auth';
-import { authPlatform } from '@/lib/config/site';
+import { SignInUnavailable } from '@/components/sign-in-unavailable';
+import { LockoutWarning } from '@/components/lockout-warning';
+import { hasPassword } from '@/lib/account/manage';
+import { resolvePicture } from '@/lib/account/connections';
+import { requireAccount } from '@/lib/auth/require';
 
 export const metadata: Metadata = { title: 'Account' };
 
-export default function AccountOverviewPage() {
+/** Server-rendered per request: it reads a session, so it can never be static. */
+export const dynamic = 'force-dynamic';
+
+export default async function AccountOverviewPage() {
+  const account = await requireAccount();
+  if (!account) {
+    return (
+      <AppShell>
+        <AccountLayout title="Overview">
+          <SignInUnavailable />
+        </AccountLayout>
+      </AppShell>
+    );
+  }
+
+  const name = `${account.firstName} ${account.lastName}`.trim();
+  const [picture, withPassword] = await Promise.all([
+    resolvePicture(account.id),
+    hasPassword(account.id),
+  ]);
+
   return (
     <AppShell>
       <AccountLayout title="Overview">
-        <PendingAuth action="Viewing and changing your account" />
+        <LockoutWarning needsUserId={!account.userId} needsPassword={!withPassword} />
+
+        <section className="group">
+          <h2 className="group__title">Signed in</h2>
+          <div className="identity">
+            <Avatar src={picture} size={56} />
+            <div className="identity__text">
+              <span className="identity__name">{name}</span>
+              {account.userId ? (
+                <span className="identity__handle">{account.userId}</span>
+              ) : null}
+            </div>
+          </div>
+          <div className="rows">
+            <div className="row">
+              <span className="row__label">Name</span>
+              <span className="row__value">{name}</span>
+              <span className="row__trailing" />
+            </div>
+            <div className="row">
+              <span className="row__label">User ID</span>
+              <span className="row__value">
+                {account.userId ?? (
+                  <span className="row__empty">Not set</span>
+                )}
+                {account.userId ? null : (
+                  <span className="row__note">
+                    This account signs in another way and has never needed one.
+                  </span>
+                )}
+              </span>
+              <span className="row__trailing" />
+            </div>
+          </div>
+        </section>
 
         <section className="group">
           <h2 className="group__title">Manage</h2>
@@ -27,7 +86,7 @@ export default function AccountOverviewPage() {
             </div>
             <div className="row">
               <span className="row__label">Security</span>
-              <span className="row__value">Password and passkeys</span>
+              <span className="row__value">Password and recovery codes</span>
               <span className="row__trailing">
                 <Link className="row__action" href="/security">
                   Open
@@ -40,31 +99,6 @@ export default function AccountOverviewPage() {
               <span className="row__trailing">
                 <Link className="row__action row__action--danger" href="/delete">
                   Open
-                </Link>
-              </span>
-            </div>
-          </div>
-        </section>
-
-        <section className="group">
-          <h2 className="group__title">Elsewhere</h2>
-          <div className="rows">
-            <div className="row">
-              <span className="row__label">Signing in</span>
-              <span className="row__value">
-                {authPlatform.name}
-                <span className="row__note">
-                  {authPlatform.domain} — separate from this site, still being built.
-                </span>
-              </span>
-              <span className="row__trailing" />
-            </div>
-            <div className="row">
-              <span className="row__label">No account yet?</span>
-              <span className="row__value">Create one in a minute</span>
-              <span className="row__trailing">
-                <Link className="row__action row__action--primary" href="/signup">
-                  Create account
                 </Link>
               </span>
             </div>
