@@ -31,6 +31,16 @@ const CLIENTS: readonly OAuthClient[] = [
     ],
     secretEnv: 'OAUTH_SECRET_FORGE',
   },
+  {
+    id: 'realmora',
+    name: 'Realmora',
+    redirectUris: [
+      'https://realmora.harithkavish.com/api/auth/callback',
+      // Wrangler Pages Functions' default local dev port.
+      'http://localhost:8788/api/auth/callback',
+    ],
+    secretEnv: 'OAUTH_SECRET_REALMORA',
+  },
 ];
 
 export function findClient(clientId: string | null): OAuthClient | null {
