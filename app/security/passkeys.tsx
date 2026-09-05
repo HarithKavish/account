@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation';
 import { startRegistration, WebAuthnError } from '@simplewebauthn/browser';
 
 import type { Passkey } from '@/lib/account/passkeys';
+import { useWebAuthnSupport } from '@/lib/hooks/use-webauthn-support';
 import { deletePasskey } from './actions';
 
 /**
@@ -16,7 +17,7 @@ import { deletePasskey } from './actions';
  */
 export function Passkeys({ passkeys }: { passkeys: Passkey[] }) {
   const router = useRouter();
-  const [supported, setSupported] = useState<boolean | null>(null);
+  const supported = useWebAuthnSupport();
   /** Whether this device has a passkey manager of its own. Null until asked. */
   const [platformAvailable, setPlatformAvailable] = useState<boolean | null>(null);
   const [adding, setAdding] = useState(false);
@@ -26,10 +27,7 @@ export function Passkeys({ passkeys }: { passkeys: Passkey[] }) {
   const [removing, startRemoving] = useTransition();
 
   useEffect(() => {
-    // The server cannot know, and a button that cannot work should not be shown.
-    const has = typeof window !== 'undefined' && typeof window.PublicKeyCredential !== 'undefined';
-    setSupported(has);
-    if (!has) return;
+    if (!supported) return;
 
     /*
      * Asked on load, and shown on the page.
@@ -42,7 +40,7 @@ export function Passkeys({ passkeys }: { passkeys: Passkey[] }) {
     window.PublicKeyCredential.isUserVerifyingPlatformAuthenticatorAvailable()
       .then(setPlatformAvailable)
       .catch(() => setPlatformAvailable(null));
-  }, []);
+  }, [supported]);
 
   async function add() {
     if (adding) return;
