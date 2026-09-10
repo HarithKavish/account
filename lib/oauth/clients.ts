@@ -41,6 +41,16 @@ const CLIENTS: readonly OAuthClient[] = [
     ],
     secretEnv: 'OAUTH_SECRET_REALMORA',
   },
+  {
+    id: 'diary',
+    name: 'Diary',
+    redirectUris: [
+      // Served by a Worker mounted at /api/* in front of diary's GitHub Pages shell.
+      'https://diary.harithkavish.com/api/auth/callback',
+      'http://localhost:8787/api/auth/callback',
+    ],
+    secretEnv: 'OAUTH_SECRET_DIARY',
+  },
 ];
 
 export function findClient(clientId: string | null): OAuthClient | null {
