@@ -6,6 +6,13 @@
  * authentication half in `lib/auth` (contract §0.5).
  */
 
+/**
+ * human | ai. Phase 1 of the human/agent platform: every account created
+ * through the current signup flow is 'human'. No code path can produce 'ai'
+ * yet -- that is a deliberately separate, later piece of work.
+ */
+export type AccountType = 'human' | 'ai';
+
 /** An account as it may be shown to a client. Never carries the hash. */
 export interface AccountProfile {
   /** Internal identifier. Never used as a login identity. */
@@ -16,6 +23,8 @@ export interface AccountProfile {
    * (§6.4) — it is not generated on their behalf.
    */
   userId: string | null;
+  /** human | ai. Always 'human' until agent onboarding exists. */
+  accountType: AccountType;
   /** Lowercased. May be present and unproved — see `emailVerified`. */
   email: string | null;
   /** Whether a provider has asserted this address for an account its owner held. */

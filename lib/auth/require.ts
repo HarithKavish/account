@@ -95,6 +95,7 @@ export async function requireAccount(): Promise<AccountProfile | null> {
   return {
     id: user.id,
     userId: user.userId,
+    accountType: user.accountType,
     email: user.email,
     emailVerified: user.emailVerifiedAt !== null,
     firstName: user.firstName,

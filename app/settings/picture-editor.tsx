@@ -1,6 +1,6 @@
 'use client';
 
-import { useActionState, useEffect, useState } from 'react';
+import { useActionState, useState } from 'react';
 
 import { Avatar } from '@/components/avatar';
 import { PencilIcon } from '@/components/icons';
@@ -38,13 +38,21 @@ export function PictureEditor({
   const [editing, setEditing] = useState(false);
   const [selected, setSelected] = useState(current);
 
-  useEffect(() => {
+  // See inline-field.tsx for why this runs during render rather than in an
+  // effect: each is a one-time reaction to a transition (a save landing, the
+  // source account's picture changing underneath), and comparing against the
+  // previous value while rendering does that in the same pass.
+  const [prevSaved, setPrevSaved] = useState(state.saved);
+  if (state.saved !== prevSaved) {
+    setPrevSaved(state.saved);
     if (state.saved) setEditing(false);
-  }, [state.saved]);
+  }
 
-  useEffect(() => {
+  const [prevCurrent, setPrevCurrent] = useState(current);
+  if (current !== prevCurrent) {
+    setPrevCurrent(current);
     setSelected(current);
-  }, [current]);
+  }
 
   const shown = choices.find((choice) => choice.id === current) ?? choices[0];
   const changed = selected !== current;

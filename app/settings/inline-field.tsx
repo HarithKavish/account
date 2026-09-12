@@ -1,6 +1,6 @@
 'use client';
 
-import { useActionState, useEffect, useState } from 'react';
+import { useActionState, useState } from 'react';
 
 import { PencilIcon } from '@/components/icons';
 import { saveNameField, type FieldState } from './actions';
@@ -33,14 +33,23 @@ export function InlineField({
   const [draft, setDraft] = useState(value);
 
   // The server is the authority on what was saved. When it confirms, the edit is
-  // over; when the value changes underneath, the draft follows it.
-  useEffect(() => {
+  // over; when the value changes underneath, the draft follows it. Applied
+  // during render rather than in an effect (react.dev's "adjusting state when
+  // a prop changes" pattern): each is a transition this component must react
+  // to exactly once, and a render-time comparison against the previous value
+  // does that in the same pass instead of a render, then a commit, then an
+  // effect that schedules another one.
+  const [prevSaved, setPrevSaved] = useState(state.saved);
+  if (state.saved !== prevSaved) {
+    setPrevSaved(state.saved);
     if (state.saved) setEditing(false);
-  }, [state.saved]);
+  }
 
-  useEffect(() => {
+  const [prevValue, setPrevValue] = useState(value);
+  if (value !== prevValue) {
+    setPrevValue(value);
     setDraft(value);
-  }, [value]);
+  }
 
   const changed = draft.trim() !== value.trim();
 

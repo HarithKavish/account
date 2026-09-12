@@ -30,6 +30,7 @@ function toProfile(row: schema.UserRow): AccountProfile {
   return {
     id: row.id,
     userId: row.userId,
+    accountType: row.accountType,
     email: row.email,
     emailVerified: row.emailVerifiedAt !== null,
     firstName: row.firstName,

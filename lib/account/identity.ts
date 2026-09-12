@@ -40,6 +40,7 @@ function toProfile(row: typeof schema.users.$inferSelect): AccountProfile {
   return {
     id: row.id,
     userId: row.userId ?? null,
+    accountType: row.accountType,
     email: row.email,
     emailVerified: row.emailVerifiedAt !== null,
     firstName: row.firstName,

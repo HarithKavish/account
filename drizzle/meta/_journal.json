@@ -57,6 +57,13 @@
       "when": 1788112004432,
       "tag": "0007_passkeys",
       "breakpoints": true
+    },
+    {
+      "idx": 8,
+      "version": "7",
+      "when": 1788551030263,
+      "tag": "0008_account_type",
+      "breakpoints": true
     }
   ]
 }

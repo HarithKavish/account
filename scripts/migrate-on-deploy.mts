@@ -21,10 +21,17 @@ neonConfig.webSocketConstructor = ws;
 
 const env = process.env.VERCEL_ENV;
 
-// A preview deploy shares the one database. Migrating from a branch would apply
-// someone's half-finished schema to production, so only production deploys do.
-if (env && env !== 'production') {
-  console.log(`[migrate] VERCEL_ENV=${env} — skipping, production only.`);
+// Opt-in, not opt-out: only a real Vercel production deploy runs this. A
+// preview deploy shares the one database, so migrating from a branch would
+// apply someone's half-finished schema to production -- but the same is true,
+// for a different reason, of anywhere that isn't Vercel at all. CI's own
+// `npm run build` (ci.yml) runs this exact script with no VERCEL_ENV set, and
+// is explicitly meant to need no live credential; `env && env !== 'production'`
+// treated "VERCEL_ENV unset" as if it meant production, which is exactly
+// backwards, and sent CI reaching for a DATABASE_URL_UNPOOLED it was never
+// going to have.
+if (env !== 'production') {
+  console.log(`[migrate] VERCEL_ENV=${env ?? '(unset)'} — skipping, production only.`);
   process.exit(0);
 }
 

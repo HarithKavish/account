@@ -1,8 +1,10 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useState } from 'react';
 import { startAuthentication } from '@simplewebauthn/browser';
 import { WebAuthnError } from '@simplewebauthn/browser';
+
+import { useWebAuthnSupport } from '@/lib/hooks/use-webauthn-support';
 
 /**
  * Signing in with a passkey.
@@ -13,18 +15,9 @@ import { WebAuthnError } from '@simplewebauthn/browser';
  * mechanism. This page never learns what exists until one is offered.
  */
 export function PasskeyButton({ next }: { next?: string }) {
-  const [supported, setSupported] = useState<boolean | null>(null);
+  const supported = useWebAuthnSupport();
   const [pending, setPending] = useState(false);
   const [error, setError] = useState<string | null>(null);
-
-  useEffect(() => {
-    // Checked in an effect because the server cannot know, and a button that
-    // cannot work should not be offered.
-    setSupported(
-      typeof window !== 'undefined' &&
-        typeof window.PublicKeyCredential !== 'undefined',
-    );
-  }, []);
 
   async function signIn() {
     if (pending) return;
@@ -84,7 +77,7 @@ export function PasskeyButton({ next }: { next?: string }) {
     }
   }
 
-  if (supported === false) return null;
+  if (!supported) return null;
 
   return (
     <div className="stack">
