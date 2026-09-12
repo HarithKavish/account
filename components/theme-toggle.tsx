@@ -36,6 +36,7 @@ export const themeInitScript = `
     var prefersDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
     var theme = stored === 'light' || stored === 'dark' ? stored : (prefersDark ? 'dark' : 'light');
     document.documentElement.setAttribute('data-theme', theme);
+    document.documentElement.classList.toggle('dark-mode', theme === 'dark');
   } catch (e) {
     document.documentElement.setAttribute('data-theme', 'light');
   }
@@ -70,6 +71,14 @@ function getServerSnapshot(): Theme {
 
 function setTheme(theme: Theme): void {
   document.documentElement.setAttribute('data-theme', theme);
+  /* Parity with window.HarithTheme (the vanilla sites' toggle): it flips
+     this class in addition to the attribute, for v1.0.0-era CSS that only
+     ever keyed dark mode on .dark-mode. Nothing here reads it back — only
+     data-theme is this component's own source of truth (see getSnapshot) —
+     so setting it can't create two conflicting truths, only widen who else
+     can recognize the current theme. */
+  document.documentElement.classList.toggle('dark-mode', theme === 'dark');
+  document.body?.classList.toggle('dark-mode', theme === 'dark');
   const store = typeof window === 'undefined' ? undefined : window.HarithStore;
   if (store) {
     store.set(THEME_KEY, theme);
@@ -92,6 +101,8 @@ if (typeof window !== 'undefined' && window.HarithStore) {
     const next: Theme = value === 'dark' ? 'dark' : 'light';
     if (document.documentElement.getAttribute('data-theme') === next) return;
     document.documentElement.setAttribute('data-theme', next);
+    document.documentElement.classList.toggle('dark-mode', next === 'dark');
+    document.body?.classList.toggle('dark-mode', next === 'dark');
     listeners.forEach((listener) => listener());
   });
 }
@@ -107,7 +118,7 @@ export function ThemeToggle() {
       onClick={() => setTheme(next)}
       aria-label={`Switch to ${next} theme`}
     >
-      <span aria-hidden="true">{theme === 'dark' ? '☀' : '☾'}</span>
+      <span aria-hidden="true">{theme === 'dark' ? '☀️' : '🌙'}</span>
       <span>{theme === 'dark' ? 'Light' : 'Dark'}</span>
     </button>
   );
