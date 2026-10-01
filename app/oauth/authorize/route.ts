@@ -54,6 +54,12 @@ export async function GET(request: Request) {
 
   const session = await getSessionUser();
   if (!session) {
+    // A silent check (`prompt=none`, standard OIDC) must never show a page: no
+    // session here means "not signed in", reported back to the client the same
+    // way any other OAuth error is, so a surface can ask "is this visitor
+    // already signed in anywhere in the ecosystem?" on page load without ever
+    // forcing someone who never asked to sign in onto a login screen.
+    if (params.get('prompt') === 'none') return fail('login_required');
     // Sign in first, then come back to this exact request.
     const front = new URL('/login', url.origin);
     front.searchParams.set('next', url.pathname + url.search);
